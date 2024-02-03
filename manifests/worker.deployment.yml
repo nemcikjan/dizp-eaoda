@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: eaoda-worker
+  namespace: frico
+  name: eaoda-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eaoda-worker
+  template:
+    metadata:
+      labels:
+        app: eaoda-worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+      name: eaoda-worker
+    spec:
+      serviceAccountName: frico
+      containers:
+        - name: worker
+          env:
+            - name: REDIS_HOST
+              value: redis-master
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: redis-password
+          image: ghcr.io/nemcikjan/dizp-eaoda-worker
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - /app/worker.py
+          volumeMounts:
+            - name: logs
+              mountPath: /logs
+          ports:
+            - containerPort: 8080
+          #   - readOnly: true
+          #     mountPath: /certs
+          #     name: webhook-certs
+          # readinessProbe:
+          #   httpGet:
+          #     path: /health
+          #     scheme: HTTPS
+          #     port: 443
+          #   initialDelaySeconds: 3
+          #   periodSeconds: 5
+          # livenessProbe:
+          #   httpGet:
+          #     path: /health
+          #     scheme: HTTPS
+          #     port: 443
+          #   initialDelaySeconds: 3
+          #   periodSeconds: 5
+      terminationGracePeriodSeconds: 20
+      volumes:
+        - name: logs
+          emptyDir: {}

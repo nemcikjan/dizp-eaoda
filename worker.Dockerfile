@@ -8,7 +8,6 @@ RUN pip3 install -r requirements.txt
 
 FROM base as Prod
 
-COPY worker.py /app
-COPY k8s.py /app
+COPY . /app
 
-ENTRYPOINT ["python worker.py"]
+ENTRYPOINT ["python /app/worker.py"]

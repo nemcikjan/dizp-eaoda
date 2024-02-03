@@ -10,13 +10,10 @@ import http
 import logging
 import signal
 import time
-import queue
 import csv
 
 request_events: dict[str, threading.Event] = {}
 request_results: dict[str, tuple[bool, str, dict[str]]] = {}
-
-pod_queue = queue.Queue()
 
 QUEUE_NAME = 'tasks_queue'
 
@@ -47,6 +44,8 @@ metrics = PrometheusMetrics(eaoda)
 
 
 nodes: dict[str, dict[str, bool | int]] = init_nodes()
+
+init(nodes)
 
 with open('simulation.id', 'w', newline='') as file:
     file.write(SIMULATION_NAME)
@@ -298,22 +297,22 @@ def create():
 
     return {"message": "Pod process started"}
 
-    request_events[pod_id] = threading.Event()
-    pod_queue.put((pod_id, req))
-    kube_processing_time_start = time.perf_counter()
-    request_events[pod_id].wait()
-    kube_processing_time_end = time.perf_counter()
-    kube_processing_pod_time.labels(pod=pod_id, simulation=SIMULATION_NAME).set(kube_processing_time_end - kube_processing_time_start)
+    # request_events[pod_id] = threading.Event()
+    # pod_queue.put((pod_id, req))
+    # kube_processing_time_start = time.perf_counter()
+    # request_events[pod_id].wait()
+    # kube_processing_time_end = time.perf_counter()
+    # kube_processing_pod_time.labels(pod=pod_id, simulation=SIMULATION_NAME).set(kube_processing_time_end - kube_processing_time_start)
 
-    allowed, message, pod_data = request_results.pop(pod_id)
+    # allowed, message, pod_data = request_results.pop(pod_id)
 
-    # Clean up: remove the event for this request
-    del request_events[pod_id]
+    # # Clean up: remove the event for this request
+    # del request_events[pod_id]
 
-    if allowed:
-        prepare_and_create_pod(pod_data)
+    # if allowed:
+    #     prepare_and_create_pod(pod_data)
 
-    return {"message": message}
+    # return {"message": message}
 
 
 if __name__ == '__main__':
