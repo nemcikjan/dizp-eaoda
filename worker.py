@@ -1,9 +1,13 @@
 import logging
 import os
 import signal
+import sys
 import threading
 
 from k8s import watch_pods
+
+logging.basicConfig(level=logging.INFO, handlers=(logging.StreamHandler(sys.stdout),),
+                    format='%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]')
 
 
 stop_event = threading.Event()

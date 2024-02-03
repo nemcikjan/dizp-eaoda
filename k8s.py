@@ -47,7 +47,7 @@ def init_nodes() -> dict[str, dict[str, bool | int]]:
     # }
     v1 = client.CoreV1Api()
     ret = v1.list_node()
-    return {n.metadata.name: {key: True for key in str.split(n.metadata.annotations["colors"], sep=",")} | {'cpu': int(.95 * parse_cpu_to_millicores(n.status.capacity["cpu"])), 'memory': int(.95 * parse_memory_to_bytes(n.status.capacity["memory"]))} for n in ret.items}
+    return {n.metadata.name: {key: True for key in str.split(n.metadata.annotations["colors"], sep=",")} | {'cpu': int(.95 * parse_cpu_to_millicores(n.status.capacity["cpu"])), 'colors': n.metadata.annotations["colors"], 'memory': int(.95 * parse_memory_to_bytes(n.status.capacity["memory"]))} for n in ret.items}
 
 def delete_pod(pod_name: str, namespace: str):
     v1 = client.CoreV1Api()

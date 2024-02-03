@@ -1,4 +1,4 @@
-from frico_redis import calculate_obj, get_node, allocate_task, release_task, can_allocate, find_applicable, get_nodes, get_task, get_node_colors, get_max, get_node_tasks, number_of_nodes, add_node
+from frico_redis import calculate_obj, get_node, allocate_task, has_color_node, release_task, can_allocate, find_applicable, get_nodes, get_task, get_node_colors, get_max, get_node_tasks, number_of_nodes, add_node
 from typing import Optional
 
 class Task(object):
@@ -46,13 +46,11 @@ class FRICO:
             num_of_nodes = number_of_nodes()
             while len(searched_knapsacks) <= num_of_nodes and not choosen_node:
                 knapsack = get_max()
-                colors = get_node_colors(knapsack)
-                if task.color in colors:
+                if has_color_node(knapsack, task.color):
                     for t in get_node_tasks(knapsack):
                         t_task = get_task(knapsack, t)
                         for o_k in get_nodes():
-                            o_k_colors = get_node_colors(o_k)
-                            if o_k is not knapsack and t_task['color'] in o_k_colors:
+                            if o_k is not knapsack and has_color_node(o_k, t_task['c']):
                                 if can_allocate(knapsack, int(t_task['cpu']), int(t_task['mem'])):
                                     release_task(knapsack, t)
                                     allocate_task(o_k, t, int(t_task['cpu']), int(t_task['mem']), int(t_task['p']), t_task['c'])
@@ -83,8 +81,8 @@ class FRICO:
                 s_searched_knapsacks : list[str] = []
                 while len(searched_knapsacks) <= num_of_nodes and not s_allocated:
                     knapsack = get_max()
-                    colors = get_node_colors(knapsack)
-                    if task.color in colors:
+                    # colors = get_node_colors(knapsack)
+                    if has_color_node(knapsack, task.color):
                         tasks = []
                         cummulative_cpu = 0
                         cummulatice_memory = 0
@@ -121,9 +119,8 @@ class FRICO:
                         task_allocated = False
                         while len(l_searched_knapsacks) <= num_of_nodes and not task_allocated:
                             knapsack = get_max()
-                            colors = get_node_colors(knapsack)
                             t_task = get_task(knapsack, t)
-                            if t_task['c'] in colors and can_allocate(knapsack,int(t_task['cpu']), int(t_task['mem'])):
+                            if  has_color_node(knapsack. t_task['c']) and can_allocate(knapsack,int(t_task['cpu']), int(t_task['mem'])):
                                 allocate_task(knapsack, t, int(t_task['cpu']), int(t_task['mem']), int(t_task['p']), t_task['c'])
                                 task_allocated = True
                                 tasks_to_reschedule[t] = (t, knapsack)

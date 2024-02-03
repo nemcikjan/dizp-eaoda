@@ -84,6 +84,9 @@ def get_max() -> str:
 def get_node_colors(node: str) -> list[str]:
     return r.hget(knapsack_key(node), 'colors').split(',')
 
+def has_color_node(node: str, color: str) -> bool:
+    return r.hexists(knapsack_key(node), color)
+
 def get_node_tasks(node: str) -> list[str]:
     return r.zrange(sorted_tasks_per_node_key(node), start=0, end=-1, byscore=True)
 
@@ -127,7 +130,19 @@ def add_node(node: str) -> None:
 
 def init(nodes: dict[str, dict[str, bool | int]]) -> None:
     for k, n in nodes.items():
-        r.hset(knapsack_key(k), mapping={"cpu_cap": n["cpu"],"cpu_free": n["cpu"],"memory_cap": n["memory"], "memory_free": n["memory"], 'colors': n['colors']})
+        mapping = {}
+        for a, b in n.items():
+            if a == "cpu":
+                mapping["cpu_cap"] = n["cpu"]
+                mapping["cpu_free"] = n["cpu"]
+            elif a == "memory":
+                mapping["memory_cap"] = n["memory"]
+                mapping["memory_free"] = n["memory"]
+            else:
+                mapping[a] = str(b)
+
+
+        r.hset(knapsack_key(k), mapping=mapping)
         r.zadd(sorted_knapsacks_key, {k: calculate_capacity(k)})
 
 def enqueue_item(queue_name: str, item: dict[str, Any]):
