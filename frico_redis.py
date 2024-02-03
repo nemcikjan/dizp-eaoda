@@ -105,8 +105,7 @@ def is_admissable(cpu: int, mem: int, color: str) -> bool:
     overall_free_cpu = 0
     overall_free_memory = 0
     for k in r.scan_iter(match=f'meta:nodes:*'):
-        colors = r.hget(knapsack_key(k), 'colors')
-        if color in colors.split(','):
+        if has_color_node(k, color):
             cpu = int(r.hget(knapsack_key(k), 'cpu_free'))
             mem = int(r.hget(knapsack_key(k), 'memory_free'))
             overall_free_cpu += cpu
@@ -115,8 +114,7 @@ def is_admissable(cpu: int, mem: int, color: str) -> bool:
 
 def find_applicable(cpu: int, mem: int, color: str) -> Optional[str]:
     for n in r.zrange(sorted_knapsacks_key, start=0, end=-1, byscore=True):
-        colors = r.hget(knapsack_key(n), 'colors')
-        if color in colors.split(',') and can_allocate(n, cpu, mem):
+        if has_color_node(n, color) and can_allocate(n, cpu, mem):
             return n
     return None
 
