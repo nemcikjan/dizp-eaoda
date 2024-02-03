@@ -35,11 +35,11 @@ def sorted_tasks_per_node_key(node: str) -> str:
 
 def calculate_capacity(node: str) -> float:
     d = r.hgetall(knapsack_key(node))
-    return (((d['cpu_cap'] - d['cpu_free']) / d['cpu_cap']) + ((d['memory_cap'] - d['memory_free']) / d['memory_cap'])) / 2
+    return (((int(d['cpu_cap']) - int(d['cpu_free'])) / int(d['cpu_cap'])) + ((int(d['memory_cap']) - int(d['memory_free'])) / int(d['memory_cap']))) / 2
 
 def calculate_obj(prio: int, node: str, cpu: int, mem: int) -> float:
     d = r.hgetall(knapsack_key(node))
-    return (prio / 5) * ((((d['cpu_cap'] - cpu) / d['cpu_cap']) + ((d['memory_cap'] - mem) / d['memory_cap'])) / 2)
+    return (prio / 5) * (((( int(d['cpu_cap']) - cpu) / int(d['cpu_cap'])) + ((int(d['memory_cap']) - mem) / int(d['memory_cap']))) / 2)
 
 def get_node(node: str) -> dict:
     return r.hgetall(knapsack_key(node))
