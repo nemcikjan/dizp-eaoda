@@ -1,5 +1,5 @@
 import logging
-from frico_redis import calculate_obj, get_node, allocate_task, has_color_node, release_task, can_allocate, find_applicable, get_nodes, get_task, get_node_colors, get_max, get_node_tasks, number_of_nodes, add_node
+from frico_redis import calculate_obj, get_node, allocate_task, has_color_node, release_task, can_allocate, find_applicable, get_nodes, get_task, get_node_colors, get_max, get_node_tasks, number_of_nodes, add_node, push_temp_task, pop_temp_task, flush_temp, temp_len
 from typing import Optional
 
 class Task(object):
@@ -46,19 +46,21 @@ class FRICO:
             allocated = False
             choosen_node: Optional[str] = None
             searched_knapsacks: list[str] = []
-            num_of_nodes = number_of_nodes()
-            while len(searched_knapsacks) <= num_of_nodes and not choosen_node:
+            while number_of_nodes() > 0 and not choosen_node:
                 knapsack = get_max()
                 if has_color_node(knapsack, task.color):
                     for t in get_node_tasks(knapsack):
                         t_task = get_task(knapsack, t)
+                        logging.info(f"Suspect {t_task}")
                         for o_k in get_nodes():
-                            if o_k is not knapsack and has_color_node(o_k, t_task['c']):
-                                if can_allocate(knapsack, int(t_task['cpu']), int(t_task['mem'])):
+                            try:
+                                if o_k is not knapsack and has_color_node(o_k, t_task['c']) and can_allocate(knapsack, int(t_task['cpu']), int(t_task['mem'])):
                                     release_task(knapsack, t)
                                     allocate_task(o_k, t, int(t_task['cpu']), int(t_task['mem']), int(t_task['p']), t_task['c'])
                                     tasks_to_reschedule[t] = o_k
                                     break
+                            except Exception as e:
+                                logging.warning(f"Found random 'c' access {e}")
 
                         applicable = self.frico_find_applicable(task)    
                         if (applicable is not None):
@@ -69,11 +71,14 @@ class FRICO:
                 searched_knapsacks.append(knapsack)
 
             for n in searched_knapsacks:
-                add_node(n)
+                try:
+                    add_node(n)
+                except Exception as e:
+                    logging.warning(f"Error while addig node {n}: {e}")
 
             if choosen_node is not None:
                 self.frico_allocate_task(choosen_node, task)
-                return (choosen_node.name, tasks_to_reschedule)
+                return (choosen_node, tasks_to_reschedule)
             elif allocated and choosen_node is None:
                 raise Exception("Something gone wrong")
             else: 
@@ -82,27 +87,34 @@ class FRICO:
                 s_allocated = False
                 allocated_node = ''
                 s_searched_knapsacks : list[str] = []
-                while len(s_searched_knapsacks) <= num_of_nodes and not s_allocated:
+                while number_of_nodes() > 0 and not s_allocated:
                     knapsack = get_max()
                     # colors = get_node_colors(knapsack)
                     if has_color_node(knapsack, task.color):
                         tasks = []
+                        flush_temp()
                         cummulative_cpu = 0
                         cummulatice_memory = 0
                         has_enough_space = False
                         k_n = get_node(knapsack)
+                        logging.info(f"Got node {k_n}")
                         for t in get_node_tasks(knapsack):
-                            if calculate_obj(task.priority, knapsack, task.cpu_requirement, task.memory_requirement) <= self.calculate_potential_objective(task, int(k_n['cpu_cap']), int(k_n['memory_cap'])):
-                                tasks.append(t)
-                                t_t = get_task(knapsack, t)
-                                cummulative_cpu += int(t_t['cpu'])
-                                cummulatice_memory += int(t_t['mem'])
-                            if cummulative_cpu >= task.cpu_requirement and cummulatice_memory >= task.memory_requirement:
-                                # there are already enough tasks to relax node N in favor of task T
-                                has_enough_space = True
-                                break
-                            if len(tasks) == self.realloc_threshold:
-                                break
+                            try:
+                                if calculate_obj(task.priority, knapsack, task.cpu_requirement, task.memory_requirement) <= self.calculate_potential_objective(task, int(k_n['cpu_cap']), int(k_n['memory_cap'])):
+                                    tasks.append(t)
+                                    t_t = get_task(knapsack, t)
+                                    t_t["name"] = t
+                                    push_temp_task(t_t)
+                                    cummulative_cpu += int(t_t['cpu'])
+                                    cummulatice_memory += int(t_t['mem'])
+                                if cummulative_cpu >= task.cpu_requirement and cummulatice_memory >= task.memory_requirement:
+                                    # there are already enough tasks to relax node N in favor of task T
+                                    has_enough_space = True
+                                    break
+                                if len(tasks) == self.realloc_threshold:
+                                    break
+                            except Exception as e:
+                                logging.warning(f"Got you {e}")
                         
                         if has_enough_space:
                             # here we know that all tasks in the list must be offloaded in order to relax node N for task T
@@ -117,20 +129,26 @@ class FRICO:
                     add_node(n)
 
                 if s_allocated:
-                    for t in tasks:
+                    while temp_len() > 0:
+                    # for t in tasks:
                         l_searched_knapsacks: list[str] = []
                         task_allocated = False
-                        while len(l_searched_knapsacks) <= num_of_nodes and not task_allocated:
-                            knapsack = get_max()
-                            t_task = get_task(knapsack, t)
-                            if  has_color_node(knapsack. t_task['c']) and can_allocate(knapsack,int(t_task['cpu']), int(t_task['mem'])):
-                                allocate_task(knapsack, t, int(t_task['cpu']), int(t_task['mem']), int(t_task['p']), t_task['c'])
-                                task_allocated = True
-                                tasks_to_reschedule[t] = knapsack
+                        t = pop_temp_task()
+                        logging.info(f"Got task {t}")
+                        while number_of_nodes() > 0 and not task_allocated:
+                            knapsack = get_max()                            
+                            try:
+                                if  has_color_node(knapsack, t['c']) and can_allocate(knapsack,int(t['cpu']), int(t['mem'])):
+                                    allocate_task(knapsack, t['name'], int(t['cpu']), int(t['mem']), int(t['p']), t['c'])
+                                    task_allocated = True
+                                    tasks_to_reschedule[t['name']] = knapsack
+                            except Exception as e:
+                                logging.warning(f"Error while allocating in last phase {e}")
+                            
                             l_searched_knapsacks.append(knapsack)
                         
                         if not task_allocated:
-                            tasks_to_reschedule[t] = None
+                            tasks_to_reschedule[t['name']] = None
                             self.offloaded_tasks += 1
                         
                         for n in l_searched_knapsacks:

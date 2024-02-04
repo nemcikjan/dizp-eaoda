@@ -1,7 +1,7 @@
 from typing import Any
 from kubernetes import client, config, watch
 from frico import Task
-from frico_redis import handle_pod
+from frico_redis import get_task, handle_pod
 import logging
 from threading import Event
 import time
@@ -65,7 +65,7 @@ def create_pod(pod_data: PodData, namespace: str):
     pod = client.V1Pod()
     pod.metadata = client.V1ObjectMeta(name=pod_data.name, labels=pod_data.labels, annotations=pod_data.annotations)
     new_resources = client.V1ResourceRequirements(requests={"cpu": f"{str(pod_data.cpu_requirement)}m", "memory": f"{str(pod_data.memory_requirement)}"})
-    pod.spec = client.V1PodSpec(node_selector={"name": pod_data.node_name}, restart_policy="Never", containers=[client.V1Container(name="task", image="alpine:3.19", command=["/bin/sh"], args=["-c", f"sleep {pod_data.exec_time if pod_data.exec_time > 0 else 0} && exit 0"], resources=new_resources)])
+    pod.spec = client.V1PodSpec(node_selector={"name": pod_data.node_name},  restart_policy="Never", containers=[client.V1Container(name="task", image="alpine:3.19", command=["/bin/sh"], args=["-c", f"sleep {pod_data.exec_time if pod_data.exec_time > 0 else 0} && exit 0"], resources=new_resources)])
     try:
         response = v1.create_namespaced_pod(namespace=namespace, body=pod)
         logging.info(f"Pod {pod_data.name} created")
@@ -74,47 +74,52 @@ def create_pod(pod_data: PodData, namespace: str):
         logging.warning(f"Exception while creating pod: {e}")
         raise e
 
-def reschedule(task: Task, namespace: str, new_node_name: str):
+def reschedule(task_name: str, namespace: str, new_node_name: str):
     v1 = client.CoreV1Api()
     try:
-        logging.info(f"Rescheduling task {task.name}")
+        logging.info(f"Rescheduling task {task_name} to {new_node_name}")
         pod = None
         try:
-            pod = v1.read_namespaced_pod(name=task.name, namespace=namespace)
+            pod = v1.read_namespaced_pod(name=task_name, namespace=namespace)
         except Exception as e:
-            logging.warning(f"Got you fucker {task.name}")
+            logging.warning(f"Got you fucker {task_name}")
         if pod is not None:
             try:
-                res = delete_pod(task.name, namespace)
-                logging.info(f"Pod {task.name} deleted due rescheduling")
+                res = delete_pod(task_name, namespace)
+                logging.info(f"Pod {task_name} deleted due rescheduling")
             except Exception as e:
                 logging.warning(f"Exception when deleting pod during rescheduling: {e}")
  
         new_labels = {}
         new_annotations = {}
         new_exec_time = 0
+        task = get_task(new_node_name, task_name)
         if pod is None:
-            new_annotations["v2x.context/priority"] = str(task.priority)
-            new_annotations["v2x.context/color"] = task.color
+            new_annotations["v2x.context/priority"] = str(task['p'])
+            new_annotations["v2x.context/color"] = task['c']
             new_labels["arrival_time"] = str(int(time.time()))
             new_labels["frico"] = "true"
-            new_labels["task_id"] = task.name
+            new_labels["task_id"] = task_name
+            # logging.warning("We must fix this")
         else:
             new_labels = pod.metadata.labels
             new_annotations = pod.metadata.annotations
             arrival_time = int(pod.metadata.labels["arrival_time"])
             exec_time = int(pod.metadata.labels["exec_time"])
             new_exec_time = exec_time - (int(time.time()) - arrival_time)
+            new_exec_time = new_exec_time if new_exec_time > 0 else 0
 
         new_labels["node_name"] = new_node_name
         new_labels["frico_skip"] = "true"
         new_labels["exec_time"] = str(new_exec_time)
         new_annotations["v2x.context/exec_time"] = str(new_exec_time)
+
         
-        ppod = PodData(name=task.name, labels=new_labels, annotations=new_annotations, cpu_requirement=task.cpu_requirement, memory_requirement=task.memory_requirement, exec_time=new_exec_time, node_name=new_node_name)
+        
+        ppod = PodData(name=task_name, labels=new_labels, annotations=new_annotations, cpu_requirement=task["cpu"], memory_requirement=task["mem"], exec_time=new_exec_time, node_name=new_node_name)
         try:
             response = create_pod(ppod, namespace)
-            logging.info(f"Pod {task.name} rescheduled")
+            logging.info(f"Pod {task_name} rescheduled")
             return response
         except Exception as e:
             logging.warning(f"Exception when creating pod during rescheduling: {e}")
@@ -143,7 +148,7 @@ def watch_pods(stop_signal: Event):
                 # if "frico" in pod.metadata.labels and pod_status == "Succeeded":
                 if event_type == "ADDED":
                     logging.info(f"Pod {pod.metadata.name} succeeded")
-                    handle_pod(pod.metadata.name, pod.metadata.labels["node_name"])
+                    handle_pod(pod.metadata.name, pod.spec.node_name)
                     delete_pod(pod.metadata.name, pod.metadata.namespace)
             except Exception as e:
                 logging.warning(f"Error while handling pod deletion in thread {e}")

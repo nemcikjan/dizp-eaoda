@@ -23,12 +23,16 @@ knapsack_key_prefix = 'meta:nodes:{node}'
 task_key_prefix = 'meta:tasks:{task}:{node}'
 sorted_knapsacks_key = 'nodes'
 sorted_tasks_per_node_key_prefix = 'tasks:{node}'
+temp_tasks_key_prefix = 'temp_tasks'
 
 def knapsack_key(node: str) -> str:
     return knapsack_key_prefix.format(node=node)
 
 def task_key(task: str, node: str) -> str:
     return task_key_prefix.format(task=task, node=node)
+
+def temp_task_key(task: str) -> str:
+    return temp_tasks_key_prefix.format(task=task)
 
 def sorted_tasks_per_node_key(node: str) -> str:
     return sorted_tasks_per_node_key_prefix.format(node=node)
@@ -58,12 +62,12 @@ def decrease_capacity(node: str, cpu: int, mem: int) -> None:
     update_node(node)
 
 def allocate_task(node: str, task: str, cpu: int, mem: int, prio: int, color: int) -> None:
-    logging.info(f"Allocation to node {node}")
+    logging.info(f"Allocation of task {task} to node {node}")
     try:
         r.hset(task_key(task, node), mapping={'cpu': cpu, 'p': prio, 'mem': mem, 'c': color})
         decrease_capacity(node, cpu, mem)
         r.zadd(sorted_tasks_per_node_key(node), {task: calculate_obj(prio, node, cpu, mem)})
-        update_node(node)
+        # update_node(node)
     except Exception as e:
         logging.warning(f"Exception occured while allocating {e}")
         raise e
@@ -75,7 +79,7 @@ def release_task(node: str, task: str) -> None:
     r.delete(key)
     increase_capacity(node, cpu, mem)
     r.zrem(sorted_tasks_per_node_key(node), task)
-    update_node(node)
+    # update_node(node)
 
 def get_task(node: str, task: str) -> dict:
     return r.hgetall(task_key(task, node))
@@ -84,7 +88,7 @@ def get_nodes() -> list[str]:
     return r.zrange(sorted_knapsacks_key, start=0, end=-1)
 
 def get_max() -> str:
-    return r.zpopmax(sorted_knapsacks_key)
+    return r.zpopmax(sorted_knapsacks_key)[0]
 
 def get_node_colors(node: str) -> list[str]:
     return r.hget(knapsack_key(node), 'colors').split(',')
@@ -113,20 +117,20 @@ def is_admissable(cpu: int, mem: int, color: str) -> bool:
     overall_free_cpu = 0
     overall_free_memory = 0
     for k in r.scan_iter(match='meta:nodes:*'):
-        logging.info(f"Iterating node {k}, color {color}, has task color {has_color_node(get_node_name_from_meta_key(k), color)}")
+        # logging.info(f"Iterating node {k}, color {color}, has task color {has_color_node(get_node_name_from_meta_key(k), color)}")
         if has_color_node(get_node_name_from_meta_key(k), color):
-            cpu = int(r.hget(k, 'cpu_free'))
-            mem = int(r.hget(k, 'memory_free'))
-            overall_free_cpu += cpu
-            overall_free_memory += mem
+            node_cpu = int(r.hget(k, 'cpu_free'))
+            node_mem = int(r.hget(k, 'memory_free'))
+            overall_free_cpu += node_cpu
+            overall_free_memory += node_mem
             if cpu <= overall_free_cpu and mem <= overall_free_memory:
                 return True
     return cpu <= overall_free_cpu and mem <= overall_free_memory
 
 def find_applicable(cpu: int, mem: int, color: str) -> Optional[str]:
-    logging.info(f"Zrange {r.zrange(sorted_knapsacks_key, start=0, end=-1)}")
+    # logging.info(f"Zrange {r.zrange(sorted_knapsacks_key, start=0, end=-1)}")
     for n in r.zrange(sorted_knapsacks_key, start=0, end=-1):
-        logging.info(f"Zrange {n}")
+        # logging.info(f"Zrange {n}")
         if has_color_node(n, color) and can_allocate(n, cpu, mem):
             return n
     return None
@@ -154,7 +158,7 @@ def init(nodes: dict[str, dict[str, bool | int]]) -> None:
 
 
         r.hset(knapsack_key(k), mapping=mapping)
-        r.zadd(sorted_knapsacks_key, {k: calculate_capacity(k)})
+        add_node(k)
 
 def enqueue_item(queue_name: str, item: dict[str, Any]):
     """
@@ -177,7 +181,20 @@ def dequeue_item(queue_name: str, timeout=0):
 
 def handle_pod(task_id: str, node_name: str):
     try:
-        release_task(node_name, task_id)
         logging.info(f"Releasing task {task_id} from {node_name}")
+        release_task(node_name, task_id)
     except Exception as e:
         logging.warning(f"Handling pod failed {e}")
+
+def push_temp_task(task: dict[str, Any]):
+    r.rpush(temp_tasks_key_prefix, json.dumps(task))
+
+def pop_temp_task() -> dict[str, Any]:
+    item = r.lpop(temp_tasks_key_prefix)
+    return json.loads(item)
+
+def temp_len():
+    return r.llen(temp_tasks_key_prefix)
+
+def flush_temp():
+    r.delete(temp_tasks_key_prefix)
