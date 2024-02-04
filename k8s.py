@@ -1,7 +1,7 @@
 from typing import Any
 from kubernetes import client, config, watch
 from frico import Task
-from frico_redis import get_task, handle_pod
+from frico_redis import get_task, handle_pod, release_task
 import logging
 from threading import Event
 import time
@@ -93,22 +93,28 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
         new_labels = {}
         new_annotations = {}
         new_exec_time = 0
-        task = get_task(new_node_name, task_name)
         if pod is None:
-            new_annotations["v2x.context/priority"] = str(task['p'])
-            new_annotations["v2x.context/color"] = task['c']
-            new_labels["arrival_time"] = str(int(time.time()))
-            new_labels["frico"] = "true"
-            new_labels["task_id"] = task_name
+            release_task(new_node_name, task_name)
+            # new_annotations["v2x.context/priority"] = str(task['p'])
+            # new_annotations["v2x.context/color"] = task['c']
+            # new_labels["arrival_time"] = str(int(time.time()))
+            # new_labels["frico"] = "true"
+            # new_labels["task_id"] = task_name
             # logging.warning("We must fix this")
+            return
         else:
             new_labels = pod.metadata.labels
             new_annotations = pod.metadata.annotations
             arrival_time = int(pod.metadata.labels["arrival_time"])
             exec_time = int(pod.metadata.labels["exec_time"])
             new_exec_time = exec_time - (int(time.time()) - arrival_time)
-            new_exec_time = new_exec_time if new_exec_time > 0 else 0
+            # new_exec_time = new_exec_time if new_exec_time > 0 else 0
+        
+        if new_exec_time < 0:
+            release_task(new_node_name, task_name)
+            return
 
+        task = get_task(new_node_name, task_name)
         new_labels["node_name"] = new_node_name
         new_labels["frico_skip"] = "true"
         new_labels["exec_time"] = str(new_exec_time)

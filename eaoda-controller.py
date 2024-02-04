@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Flask, request, jsonify
 from frico import FRICO, Task
 from prometheus_flask_exporter import PrometheusMetrics
@@ -31,9 +32,9 @@ unallocated_priority_counter = Gauge('unallocated_priorities', 'Unallocated task
 MAX_REALLOC = int(os.environ.get("MAX_REALLOC"))
 SIMULATION_NAME = os.environ.get("SIMULATION_NAME")
 LOG_PATH = os.environ.get("LOG_PATH")
-CURRENT_TIME = str(int(time.time()))
+CURRENT_TIME = int(time.time())
+TEST_BED_PATH = os.path.join(os.environ.get("TEST_BED_PATH"),f'{SIMULATION_NAME}-{datetime.fromtimestamp(CURRENT_TIME).strftime('%Y-%m-%d-%H-%M-%S')}.csv')
 SIMULATION_NAME = SIMULATION_NAME + f"-{CURRENT_TIME}"
-TEST_BED_PATH = os.path.join(os.environ.get("TEST_BED_PATH"),f'{SIMULATION_NAME}.csv')
 
 eaoda = Flask(__name__)
 
@@ -126,10 +127,10 @@ def process_pod():
                     else:
                         try:
                             res = reschedule(shit, "tasks", to_shit)
+                            reallocated_tasks_counter.labels(simulation=SIMULATION_NAME).inc()
                         except:
                             logging.warning(f"Removing pod {shit} from {to_shit} failed. Finished before reschedeling")
                             release_task(to_shit, shit)
-                        reallocated_tasks_counter.labels(simulation=SIMULATION_NAME).inc()
                     
                 pod_data = {
                     "node_name": node_name,
