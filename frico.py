@@ -92,7 +92,7 @@ class FRICO:
                     # colors = get_node_colors(knapsack)
                     if has_color_node(knapsack, task.color):
                         tasks = []
-                        flush_temp()
+                        flush_temp(task.name)
                         cummulative_cpu = 0
                         cummulatice_memory = 0
                         has_enough_space = False
@@ -104,7 +104,7 @@ class FRICO:
                                     tasks.append(t)
                                     t_t = get_task(knapsack, t)
                                     t_t["name"] = t
-                                    push_temp_task(t_t)
+                                    push_temp_task(task.name, t_t)
                                     cummulative_cpu += int(t_t['cpu'])
                                     cummulatice_memory += int(t_t['mem'])
                                 if cummulative_cpu >= task.cpu_requirement and cummulatice_memory >= task.memory_requirement:
@@ -129,11 +129,11 @@ class FRICO:
                     add_node(n)
 
                 if s_allocated:
-                    while temp_len() > 0:
+                    while temp_len(task.name) > 0:
                     # for t in tasks:
                         l_searched_knapsacks: list[str] = []
                         task_allocated = False
-                        t = pop_temp_task()
+                        t = pop_temp_task(task.name)
                         logging.info(f"Got task {t}")
                         while number_of_nodes() > 0 and not task_allocated:
                             knapsack = get_max()                            

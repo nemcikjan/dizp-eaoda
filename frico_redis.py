@@ -23,16 +23,16 @@ knapsack_key_prefix = 'meta:nodes:{node}'
 task_key_prefix = 'meta:tasks:{task}:{node}'
 sorted_knapsacks_key = 'nodes'
 sorted_tasks_per_node_key_prefix = 'tasks:{node}'
-temp_tasks_key_prefix = 'temp_tasks'
+temp_tasks_key_prefix = 'temp_tasks:{task}'
 
 def knapsack_key(node: str) -> str:
     return knapsack_key_prefix.format(node=node)
 
-def task_key(task: str, node: str) -> str:
-    return task_key_prefix.format(task=task, node=node)
-
 def temp_task_key(task: str) -> str:
     return temp_tasks_key_prefix.format(task=task)
+
+def task_key(task: str, node: str) -> str:
+    return task_key_prefix.format(task=task, node=node)
 
 def sorted_tasks_per_node_key(node: str) -> str:
     return sorted_tasks_per_node_key_prefix.format(node=node)
@@ -88,7 +88,7 @@ def get_nodes() -> list[str]:
     return r.zrange(sorted_knapsacks_key, start=0, end=-1)
 
 def get_max() -> str:
-    return r.zpopmax(sorted_knapsacks_key)[0]
+    return r.bzpopmax(sorted_knapsacks_key)[1]
 
 def get_node_colors(node: str) -> list[str]:
     return r.hget(knapsack_key(node), 'colors').split(',')
@@ -186,15 +186,15 @@ def handle_pod(task_id: str, node_name: str):
     except Exception as e:
         logging.warning(f"Handling pod failed {e}")
 
-def push_temp_task(task: dict[str, Any]):
-    r.rpush(temp_tasks_key_prefix, json.dumps(task))
+def push_temp_task(t: str, task: dict[str, Any]):
+    r.rpush(temp_task_key(t), json.dumps(task))
 
-def pop_temp_task() -> dict[str, Any]:
-    item = r.lpop(temp_tasks_key_prefix)
+def pop_temp_task(task: str) -> dict[str, Any]:
+    item = r.lpop(temp_task_key(task))
     return json.loads(item)
 
-def temp_len():
-    return r.llen(temp_tasks_key_prefix)
+def temp_len(task: str):
+    return r.llen(temp_task_key(task))
 
-def flush_temp():
-    r.delete(temp_tasks_key_prefix)
+def flush_temp(task: str):
+    r.delete(temp_task_key(task))

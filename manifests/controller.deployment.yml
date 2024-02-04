@@ -67,7 +67,7 @@ spec:
             - name: MAX_REALLOC
               value: "4"
             - name: SIMULATION_NAME
-              value: Barnim #LuST
+              value: LuST
             - name: LOG_PATH
               value: /logs/app.log
             - name: TEST_BED_PATH
