@@ -51,7 +51,7 @@ class FRICO:
                 if has_color_node(knapsack, task.color):
                     for t in get_node_tasks(knapsack):
                         t_task = get_task(knapsack, t)
-                        logging.info(f"Suspect {t_task}")
+                        logging.info(f"Suspect {t}:{knapsack} {t_task}")
                         for o_k in get_nodes():
                             try:
                                 if o_k is not knapsack and has_color_node(o_k, t_task['c']) and can_allocate(knapsack, int(t_task['cpu']), int(t_task['mem'])):
@@ -61,6 +61,8 @@ class FRICO:
                                     break
                             except Exception as e:
                                 logging.warning(f"Found random 'c' access {e}")
+                                logging.info(f"Releasing {t} from {knapsack} due error")
+                                release_task(knapsack, t)
 
                         applicable = self.frico_find_applicable(task)    
                         if (applicable is not None):
@@ -101,12 +103,12 @@ class FRICO:
                         for t in get_node_tasks(knapsack):
                             try:
                                 if calculate_obj(task.priority, knapsack, task.cpu_requirement, task.memory_requirement) <= self.calculate_potential_objective(task, int(k_n['cpu_cap']), int(k_n['memory_cap'])):
-                                    tasks.append(t)
                                     t_t = get_task(knapsack, t)
                                     t_t["name"] = t
-                                    push_temp_task(task.name, t_t)
                                     cummulative_cpu += int(t_t['cpu'])
                                     cummulatice_memory += int(t_t['mem'])
+                                    tasks.append(t)
+                                    push_temp_task(task.name, t_t)
                                 if cummulative_cpu >= task.cpu_requirement and cummulatice_memory >= task.memory_requirement:
                                     # there are already enough tasks to relax node N in favor of task T
                                     has_enough_space = True
@@ -114,7 +116,9 @@ class FRICO:
                                 if len(tasks) == self.realloc_threshold:
                                     break
                             except Exception as e:
-                                logging.warning(f"Got you {e}")
+                                logging.warning(f"Error while trying to find space {e}")
+                                logging.info(f"Releasing {t} from {knapsack} due error")
+                                release_task(knapsack, t)
                         
                         if has_enough_space:
                             # here we know that all tasks in the list must be offloaded in order to relax node N for task T

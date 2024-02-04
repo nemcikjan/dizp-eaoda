@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Optional, Any
+import uuid
 import redis
 import logging
 
@@ -24,6 +25,14 @@ task_key_prefix = 'meta:tasks:{task}:{node}'
 sorted_knapsacks_key = 'nodes'
 sorted_tasks_per_node_key_prefix = 'tasks:{node}'
 temp_tasks_key_prefix = 'temp_tasks:{task}'
+nodes_mutex_key_prefix = 'mutex:nodes:{node}'
+tasks_mutex_key_prefix = 'mutex:tasks:{task}'
+
+def node_mutex_key(node: str) -> str:
+    return nodes_mutex_key_prefix.format(node=node)
+
+def task_mutex_key(task: str) -> str:
+    return tasks_mutex_key_prefix.format(task=task)
 
 def knapsack_key(node: str) -> str:
     return knapsack_key_prefix.format(node=node)
@@ -88,7 +97,7 @@ def get_nodes() -> list[str]:
     return r.zrange(sorted_knapsacks_key, start=0, end=-1)
 
 def get_max() -> str:
-    return r.bzpopmax(sorted_knapsacks_key)[1]
+    return r.zpopmax(sorted_knapsacks_key)[0]
 
 def get_node_colors(node: str) -> list[str]:
     return r.hget(knapsack_key(node), 'colors').split(',')
@@ -198,3 +207,44 @@ def temp_len(task: str):
 
 def flush_temp(task: str):
     r.delete(temp_task_key(task))
+
+def acquire_task_lock(task: str, token: str, timeout=None):
+    """Attempt to acquire the mutex, blocking if necessary."""
+    # Try to push the token onto the list only if it's empty (mutex is free)
+    acquired = r.lpushx(task_mutex_key(task), token)
+    if acquired:
+        return True
+
+    # If not acquired, block until able to pop the token (mutex is acquired)
+    while True:
+        _, t = r.blpop(task_mutex_key(task), timeout=timeout)
+        if t == token:
+            return True
+        # Optional: handle timeout if token is None
+
+def release_task_lock(task: str, token: str):
+    """Release the mutex."""
+    # Remove the token from the list, signaling the mutex is now free
+    r.lrem(task_mutex_key(task), 1, token)
+
+def acquire_node_lock(node: str, token: str, timeout=None):
+    """Attempt to acquire the mutex, blocking if necessary."""
+    # Try to push the token onto the list only if it's empty (mutex is free)
+    acquired = r.lpushx(node_mutex_key(node), token)
+    if acquired:
+        return True
+
+    # If not acquired, block until able to pop the token (mutex is acquired)
+    while True:
+        _, t = r.blpop(node_mutex_key(node), timeout=timeout)
+        if t == token:
+            return True
+        # Optional: handle timeout if token is None
+
+def release_node_lock(node: str, token: str):
+    """Release the mutex."""
+    # Remove the token from the list, signaling the mutex is now free
+    r.lrem(node_mutex_key(node), 1, token)
+
+def generate_token() -> str:
+    return str(uuid.uuid4())
