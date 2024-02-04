@@ -6,7 +6,8 @@ import logging
 from threading import Event
 import time
 
-config.load_incluster_config()
+# config.load_incluster_config()
+config.load_config()
 
 class PodData(object):
     def __init__(self, name: str, labels: dict[str], annotations: dict[str], cpu_requirement: int, memory_requirement: int, exec_time: int, node_name: str) -> None:
@@ -203,3 +204,17 @@ def parse_memory_to_bytes(mem_str: str):
         return int(float(mem_str[:-1]) * unit_multipliers[mem_str[-1]])
     else:
         return int(mem_str)
+    
+
+#     type PodData struct {
+# 	Cpu      int    `json:"cpu"`
+# 	Memory   int    `json:"memory"`
+# 	Priority int    `json:"priority"`
+# 	Color    string `json:"color"`
+# 	ExecTime int    `json:"execTime"`
+# }
+
+# type PodRequest struct {
+# 	PodData
+# 	Name string `json:"name"`
+# }

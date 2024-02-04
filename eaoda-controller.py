@@ -33,7 +33,7 @@ SIMULATION_NAME = os.environ.get("SIMULATION_NAME")
 LOG_PATH = os.environ.get("LOG_PATH")
 CURRENT_TIME = str(int(time.time()))
 SIMULATION_NAME = SIMULATION_NAME + f"-{CURRENT_TIME}"
-TEST_BED_PATH = os.path.join(os.environ.get("TEST_BED_PATH"),f'{SIMULATION_NAME}-{CURRENT_TIME}.csv')
+TEST_BED_PATH = os.path.join(os.environ.get("TEST_BED_PATH"),f'{SIMULATION_NAME}.csv')
 
 eaoda = Flask(__name__)
 
@@ -71,6 +71,7 @@ def process_pod():
         try:
         # Process the pod here (mutate, etc.)
         # Replace the following line with your actual mutation logic
+            logging.info(f"Dequeueing item {pod}")
             pod_name = pod["name"]
             priority = int(pod["priority"])
             color = pod["color"]
@@ -89,15 +90,18 @@ def process_pod():
             node_name = ''
             shit_to_be_done: dict[str, str] = {}
             frico_start_time = time.perf_counter()
+            logging.info(f"Is admissable {pod_name}: {is_admissable(task.cpu_requirement, task.memory_requirement, task.color)}")
             if is_admissable(task.cpu_requirement, task.memory_requirement, task.color):
                 node_name, shit_to_be_done = solver.solve(task)
             frico_end_time = time.perf_counter()
+
+            logging.info(f"Node name: {node_name}")
 
             allowed = node_name != ''
             processing_pod_time.labels(pod=pod_name, simulation=SIMULATION_NAME).set(frico_end_time - frico_start_time)
             if allowed:
                 allocated_tasks_counter.labels(node=node_name, simulation=SIMULATION_NAME).inc()
-                objective_value_gauge.labels(simulation=SIMULATION_NAME).inc(task.objective_value())
+                # objective_value_gauge.labels(simulation=SIMULATION_NAME).inc(task.objective_value())
                 priority_counter.labels(simulation=SIMULATION_NAME, pod=pod_name, priority=str(task.priority)).inc()
 
                 # task_to_last_node: dict[str, tuple[Task, Node]] = {}
@@ -111,7 +115,7 @@ def process_pod():
                 # filtered_array = [task_node_tuple for _, task_node_tuple in task_to_last_node.items()]
 
                 # for shit, to_shit in shit_to_be_done:
-                for _, (shit, to_shit) in shit_to_be_done.items():
+                for shit, to_shit in shit_to_be_done.items():
                     if to_shit is None:
                         try:
                             res = delete_pod(shit, "tasks")
@@ -127,25 +131,25 @@ def process_pod():
                             release_task(to_shit, shit)
                         reallocated_tasks_counter.labels(simulation=SIMULATION_NAME).inc()
                     
+                pod_data = {
+                    "node_name": node_name,
+                    "task_id": pod_name,
+                    "arrival_time": str(arrival_time),
+                    "exec_time": str(exec_time),
+                    "priority": priority,
+                    "color": color,
+                    "cpu": cpu,
+                    "memory": memory
+                }
+
+                eaoda.logger.info(f"Task {pod_name} -> node {node_name}")
+                res = prepare_and_create_pod(pod_data)
+                eaoda.logger.info(res["message"])
+                    
             else:
                 unallocated_tasks_counter.labels(simulation=SIMULATION_NAME).inc()
                 unallocated_priority_counter.labels(simulation=SIMULATION_NAME, priority=str(task.priority)).inc()
 
-            
-            pod_data = {
-                "node_name": node_name,
-                "task_id": pod_name,
-                "arrival_time": str(arrival_time),
-                "exec_time": str(exec_time),
-                "priority": priority,
-                "color": color,
-                "cpu": cpu,
-                "memory": memory
-            }
-
-            eaoda.logger.info(f"Task {pod_name} -> node {node_name}")
-            res = prepare_and_create_pod(pod_data)
-            eaoda.logger.info(res["message"])
 
         except Exception as e:
             logging.warning(f"Exception occured: {e}")
@@ -295,12 +299,12 @@ def create():
 
     enqueue_item(QUEUE_NAME, req)
 
-    return {"message": "Pod process started"}
+    return jsonify({"message": "Pod process started"})
 
     # request_events[pod_id] = threading.Event()
     # pod_queue.put((pod_id, req))
     # kube_processing_time_start = time.perf_counter()
-    # request_events[pod_id].wait()
+    # request_events[pod_id].wait()e
     # kube_processing_time_end = time.perf_counter()
     # kube_processing_pod_time.labels(pod=pod_id, simulation=SIMULATION_NAME).set(kube_processing_time_end - kube_processing_time_start)
 

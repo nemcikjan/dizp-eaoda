@@ -58,10 +58,15 @@ def decrease_capacity(node: str, cpu: int, mem: int) -> None:
     update_node(node)
 
 def allocate_task(node: str, task: str, cpu: int, mem: int, prio: int, color: int) -> None:
-    r.hset(task_key(task, node), mapping={'cpu': cpu, 'p': prio, 'mem': mem, 'c': color})
-    decrease_capacity(node, cpu, mem)
-    r.zadd(sorted_tasks_per_node_key(node), {task: calculate_obj(prio, node, cpu, mem)})
-    update_node(node)
+    logging.info(f"Allocation to node {node}")
+    try:
+        r.hset(task_key(task, node), mapping={'cpu': cpu, 'p': prio, 'mem': mem, 'c': color})
+        decrease_capacity(node, cpu, mem)
+        r.zadd(sorted_tasks_per_node_key(node), {task: calculate_obj(prio, node, cpu, mem)})
+        update_node(node)
+    except Exception as e:
+        logging.warning(f"Exception occured while allocating {e}")
+        raise e
 
 def release_task(node: str, task: str) -> None:
     key = task_key(task, node)
@@ -76,7 +81,7 @@ def get_task(node: str, task: str) -> dict:
     return r.hgetall(task_key(task, node))
 
 def get_nodes() -> list[str]:
-    return r.zrange(sorted_knapsacks_key, start=0, end=-1, byscore=True)
+    return r.zrange(sorted_knapsacks_key, start=0, end=-1)
 
 def get_max() -> str:
     return r.zpopmax(sorted_knapsacks_key)
@@ -88,7 +93,7 @@ def has_color_node(node: str, color: str) -> bool:
     return r.hexists(knapsack_key(node), color)
 
 def get_node_tasks(node: str) -> list[str]:
-    return r.zrange(sorted_tasks_per_node_key(node), start=0, end=-1, byscore=True)
+    return r.zrange(sorted_tasks_per_node_key(node), start=0, end=-1)
 
 def number_of_nodes() -> int:
     return r.zcard(sorted_knapsacks_key)
@@ -101,19 +106,27 @@ def relocate_task(task_name: str, to_node: str) -> None:
     release_task(from_node, task_name)
     allocate_task(to_node, task_name, task['cpu'], task['mem'], task['p'], task['c'])
 
+def get_node_name_from_meta_key(key: str):
+    return key.split(':')[-1]
+
 def is_admissable(cpu: int, mem: int, color: str) -> bool:
     overall_free_cpu = 0
     overall_free_memory = 0
-    for k in r.scan_iter(match=f'meta:nodes:*'):
-        if has_color_node(k, color):
-            cpu = int(r.hget(knapsack_key(k), 'cpu_free'))
-            mem = int(r.hget(knapsack_key(k), 'memory_free'))
+    for k in r.scan_iter(match='meta:nodes:*'):
+        logging.info(f"Iterating node {k}, color {color}, has task color {has_color_node(get_node_name_from_meta_key(k), color)}")
+        if has_color_node(get_node_name_from_meta_key(k), color):
+            cpu = int(r.hget(k, 'cpu_free'))
+            mem = int(r.hget(k, 'memory_free'))
             overall_free_cpu += cpu
             overall_free_memory += mem
+            if cpu <= overall_free_cpu and mem <= overall_free_memory:
+                return True
     return cpu <= overall_free_cpu and mem <= overall_free_memory
 
 def find_applicable(cpu: int, mem: int, color: str) -> Optional[str]:
-    for n in r.zrange(sorted_knapsacks_key, start=0, end=-1, byscore=True):
+    logging.info(f"Zrange {r.zrange(sorted_knapsacks_key, start=0, end=-1)}")
+    for n in r.zrange(sorted_knapsacks_key, start=0, end=-1):
+        logging.info(f"Zrange {n}")
         if has_color_node(n, color) and can_allocate(n, cpu, mem):
             return n
     return None
@@ -147,6 +160,7 @@ def enqueue_item(queue_name: str, item: dict[str, Any]):
     """
     Enqueue an item to the queue.
     """
+    logging.info(f"Enqueueing {json.dumps(item)}")
     r.rpush(queue_name, json.dumps(item))
 
 def dequeue_item(queue_name: str, timeout=0):

@@ -1,3 +1,4 @@
+import logging
 from frico_redis import calculate_obj, get_node, allocate_task, has_color_node, release_task, can_allocate, find_applicable, get_nodes, get_task, get_node_colors, get_max, get_node_tasks, number_of_nodes, add_node
 from typing import Optional
 
@@ -33,15 +34,17 @@ class FRICO:
         return self.offloaded_tasks
 
     def solve(self, task: Task) -> tuple[str, dict[str, str]]:
-        tasks_to_reschedule: dict[str, dict[str, str]] = {}
+        tasks_to_reschedule: dict[str, str] = {}
         suitable_node = self.frico_find_applicable(task)
+
+        logging.info(f"Suitable {suitable_node}")
 
         if suitable_node is not None:
             allocate_task(suitable_node, task.id, task.cpu_requirement, task.memory_requirement, task.priority, task.color)
             return (suitable_node, tasks_to_reschedule)
         else:
             allocated = False
-            choosen_node: Optional[str]
+            choosen_node: Optional[str] = None
             searched_knapsacks: list[str] = []
             num_of_nodes = number_of_nodes()
             while len(searched_knapsacks) <= num_of_nodes and not choosen_node:
@@ -54,7 +57,7 @@ class FRICO:
                                 if can_allocate(knapsack, int(t_task['cpu']), int(t_task['mem'])):
                                     release_task(knapsack, t)
                                     allocate_task(o_k, t, int(t_task['cpu']), int(t_task['mem']), int(t_task['p']), t_task['c'])
-                                    tasks_to_reschedule[t] = (t, o_k)
+                                    tasks_to_reschedule[t] = o_k
                                     break
 
                         applicable = self.frico_find_applicable(task)    
@@ -79,7 +82,7 @@ class FRICO:
                 s_allocated = False
                 allocated_node = ''
                 s_searched_knapsacks : list[str] = []
-                while len(searched_knapsacks) <= num_of_nodes and not s_allocated:
+                while len(s_searched_knapsacks) <= num_of_nodes and not s_allocated:
                     knapsack = get_max()
                     # colors = get_node_colors(knapsack)
                     if has_color_node(knapsack, task.color):
@@ -123,11 +126,11 @@ class FRICO:
                             if  has_color_node(knapsack. t_task['c']) and can_allocate(knapsack,int(t_task['cpu']), int(t_task['mem'])):
                                 allocate_task(knapsack, t, int(t_task['cpu']), int(t_task['mem']), int(t_task['p']), t_task['c'])
                                 task_allocated = True
-                                tasks_to_reschedule[t] = (t, knapsack)
+                                tasks_to_reschedule[t] = knapsack
                             l_searched_knapsacks.append(knapsack)
                         
                         if not task_allocated:
-                            tasks_to_reschedule[t] = (t, None)
+                            tasks_to_reschedule[t] = None
                             self.offloaded_tasks += 1
                         
                         for n in l_searched_knapsacks:
