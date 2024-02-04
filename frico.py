@@ -137,13 +137,14 @@ class FRICO:
                 if s_allocated:
                     while temp_len(task.name) > 0:
                     # for t in tasks:
-                        l_searched_knapsacks: list[str] = []
+                        # l_searched_knapsacks: list[str] = []
                         task_allocated = False
                         t = pop_temp_task(task.name)
-                        logging.info(f"Got task {t}")
+                        logging.info(f"Phase 3: task {t}")
                         for knapsack in get_nodes():
                         # while number_of_nodes() > 0 and not task_allocated:
-                            knapsack = get_max()                            
+                            # knapsack = get_max()
+                            logging.info(f"Phase 3: node {knapsack}")                        
                             try:
                                 if has_color_node(knapsack, t['c']) and can_allocate(knapsack,int(t['cpu']), int(t['mem'])):
                                     allocate_task(knapsack, t['name'], int(t['cpu']), int(t['mem']), int(t['p']), t['c'])
