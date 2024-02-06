@@ -6,7 +6,7 @@ metadata:
     app: balancer-controller
 spec:
   rules:
-    - host: eaoda.umbriel.k8s.solargis.com
+    - host: vault.umbriel.k8s.solargis.com
       http:
         paths:
           - pathType: Prefix

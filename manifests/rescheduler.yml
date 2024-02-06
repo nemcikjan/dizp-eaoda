@@ -30,5 +30,5 @@ spec:
           image: ghcr.io/nemcikjan/dizp-eaoda-worker
           imagePullPolicy: IfNotPresent
           args:
-            - /app/pod_rescheduler.py
+            - /app/pod_rescheduler.worker.py
       terminationGracePeriodSeconds: 5

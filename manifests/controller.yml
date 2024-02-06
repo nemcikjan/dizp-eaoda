@@ -82,20 +82,6 @@ spec:
           #   - readOnly: true
           #     mountPath: /certs
           #     name: webhook-certs
-          readinessProbe:
-            httpGet:
-              path: /health
-              scheme: HTTP
-              port: 8080
-            initialDelaySeconds: 3
-            periodSeconds: 5
-          livenessProbe:
-            httpGet:
-              path: /health
-              scheme: HTTP
-              port: 8080
-            initialDelaySeconds: 3
-            periodSeconds: 5
       terminationGracePeriodSeconds: 20
       volumes:
         - name: fluentbit-config
