@@ -20,6 +20,8 @@ spec:
       name: eaoda-worker
     spec:
       serviceAccountName: frico
+      nodeSelector:
+        tier: compute
       containers:
         - name: worker
           env:
