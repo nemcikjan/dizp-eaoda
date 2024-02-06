@@ -266,3 +266,6 @@ def dequeue_pod_to_delete(timeout=0):
         # item is a tuple (queue_name, value), so return the value
         return json.loads(item[1])
     return None
+
+def remove_from_queue(queue: str, value: str):
+    r.lrem(queue, 1, value)

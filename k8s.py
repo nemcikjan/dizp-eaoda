@@ -45,6 +45,17 @@ def create_pod(pod_data: PodData, namespace: str):
     except Exception as e:
         logging.warning(f"Exception while creating pod: {e}")
         raise e
+    
+def label_pod(name: str, namespace: str, label: str, value: str):
+    body = {
+        "metadata": {
+            "labels": {
+                label: value
+            }
+        }
+    }
+    api_response = V1.patch_namespaced_pod(name=name, namespace=namespace, body=body)
+    return api_response
 
 def reschedule(task_name: str, namespace: str, new_node_name: str):
     try:
@@ -83,7 +94,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
             logging.warning(f"Still unable to get task {task_name} on node {new_node_name}: {e}")
             release_task(new_node_name, task_name)
             return
-
+        del new_labels["eaoda-phase"]
         new_labels["node_name"] = new_node_name
         new_labels["frico_skip"] = "true"
         new_labels["exec_time"] = str(new_exec_time)
@@ -121,7 +132,7 @@ def watch_pods(stop_signal: Event):
 
             try:
                 # if "frico" in pod.metadata.labels and pod_status == "Succeeded":
-                if event_type == "ADDED":
+                if event_type == "ADDED" and not ("eaoda-phase" in pod.metadata.labels and pod.metadata.labels["eaoda-phase"] == "rescheduling"):
                     logging.info(f"Pod {pod.metadata.name} succeeded")
                     enqueue_item("tasks_to_delete", {"name": pod.metadata.name, "namespace": pod.metadata.namespace, "node": pod.spec.node_name})
             except Exception as e:

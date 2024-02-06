@@ -3,8 +3,8 @@ import os
 import signal
 import sys
 import threading
-from frico_redis import dequeue_item, queues
-from k8s import reschedule
+from frico_redis import dequeue_item, queues, remove_from_queue
+from k8s import label_pod, reschedule
 
 
 QUEUE_NAME = queues.get('RESCHEDULE')
@@ -31,6 +31,8 @@ def reschdule_pod():
         pod = dequeue_item(QUEUE_NAME)
         if pod is not None:
             try:
+                _ = label_pod(pod["name"], pod["namespace"], "eaoda-phase", "rescheduling")
+                remove_from_queue(queues.get('DELETE'), pod["name"])
                 _ = reschedule(pod["name"], pod["namespace"], pod["node"])
             except Exception as e:
                 logging.warning(f"Unable to delete pod {pod["name"]}: {e}")

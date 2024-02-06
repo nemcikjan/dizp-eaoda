@@ -3,7 +3,7 @@ import os
 import signal
 import sys
 import threading
-from frico_redis import dequeue_item, handle_pod, queues
+from frico_redis import dequeue_item, handle_pod, queues, remove_from_queue
 from k8s import delete_pod
 
 
@@ -31,6 +31,7 @@ def delete():
         pod = dequeue_item(QUEUE_NAME)
         if pod is not None:
             try:
+                remove_from_queue(queues.get('RESCHEDULE'), pod["name"])
                 _ = delete_pod(pod["name"], pod["namespace"])
             except Exception as e:
                 logging.warning(f"Unable to delete pod {pod["name"]}: {e}")

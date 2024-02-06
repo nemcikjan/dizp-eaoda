@@ -12,6 +12,7 @@ resources:
   - rescheduler.yml
   - rbac.yml
   - sa.yml
+  - ingress.yml
 secretGenerator:
   - literals:
       - redis-password=9B42KrXV4j
@@ -24,6 +25,6 @@ configMapGenerator:
     name: fluentbit-config
 images:
   - name: ghcr.io/nemcikjan/dizp-eaoda-worker
-    newTag: v20240206-f6254bb
+    newTag: v20240206-2a55767
   - name: ghcr.io/nemcikjan/dizp-eaoda-controller
-    newTag: v20240206-f6254bb
+    newTag: v20240206-2a55767
