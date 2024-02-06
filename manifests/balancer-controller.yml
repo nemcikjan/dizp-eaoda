@@ -37,7 +37,7 @@ metadata:
   namespace: frico
   name: balancer-controller
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: balancer-controller

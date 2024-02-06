@@ -6,7 +6,7 @@ metadata:
   namespace: frico
   name: deleter-worker
 spec:
-  replicas: 2
+  replicas: 4
   selector:
     matchLabels:
       app: deleter-worker
