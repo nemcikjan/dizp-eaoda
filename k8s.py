@@ -1,7 +1,7 @@
 from typing import Any
 from kubernetes import client, config, watch
 from frico import Task
-from frico_redis import get_task, handle_pod, release_task
+from frico_redis import enqueue_item, get_task, handle_pod, release_task
 import logging
 from threading import Event
 import time
@@ -54,6 +54,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
             pod = V1.read_namespaced_pod(name=task_name, namespace=namespace)
         except Exception as e:
             logging.warning(f"Got you fucker {task_name}")
+            release_task(new_node_name, task_name)
             return
 
         if pod is not None:
@@ -81,7 +82,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
         exec_time = int(pod.metadata.labels["exec_time"])
         new_exec_time = exec_time - (int(time.time()) - arrival_time)
         
-        if new_exec_time < 0:
+        if new_exec_time <= 0:
             release_task(new_node_name, task_name)
             return
 
@@ -89,6 +90,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
             task = get_task(new_node_name, task_name)
         except Exception as e:
             logging.warning(f"Still unable to get task {task_name} on node {new_node_name}: {e}")
+            release_task(new_node_name, task_name)
             return
 
         new_labels["node_name"] = new_node_name
@@ -103,6 +105,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
             return response
         except Exception as e:
             logging.warning(f"Exception when creating pod during rescheduling: {e}")
+            release_task(new_node_name, task_name)
             return
     except Exception as e:
         logging.warning(f"Exception when rescheduling pod: {e}")
@@ -129,8 +132,9 @@ def watch_pods(stop_signal: Event):
                 # if "frico" in pod.metadata.labels and pod_status == "Succeeded":
                 if event_type == "ADDED":
                     logging.info(f"Pod {pod.metadata.name} succeeded")
-                    handle_pod(pod.metadata.name, pod.spec.node_name)
+                    enqueue_item("tasks_to_delete", {"name": pod.metadata.name, "namespace": pod.metadata.namespace, "node": pod.spec.node_name})
                     delete_pod(pod.metadata.name, pod.metadata.namespace)
+                    handle_pod(pod.metadata.name, pod.spec.node_name)
             except Exception as e:
                 logging.warning(f"Error while handling pod deletion in thread {e}")
 

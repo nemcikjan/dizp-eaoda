@@ -12,7 +12,7 @@ helmCharts:
       auth:
         existingSecret: redis-secret
       master:
-        nodeSelector:
-          name: odin
+        # nodeSelector:
+        #   name: odin
         disableCommands:
           - FLUSHALL

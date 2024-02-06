@@ -35,17 +35,17 @@ spec:
       name: eaoda
     spec:
       serviceAccountName: frico
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: DoNotSchedule
-          labelSelector:
-            matchLabels:
-              app: eaoda
-          matchLabelKeys:
-            - pod-template-hash
-      nodeSelector:
-        tier: compute
+      # topologySpreadConstraints:
+      #   - maxSkew: 1
+      #     topologyKey: kubernetes.io/hostname
+      #     whenUnsatisfiable: DoNotSchedule
+      #     labelSelector:
+      #       matchLabels:
+      #         app: eaoda
+      #     matchLabelKeys:
+      #       - pod-template-hash
+      # nodeSelector:
+      #   tier: compute
       containers:
         - name: logs
           image: cr.fluentbit.io/fluent/fluent-bit:2.1.10

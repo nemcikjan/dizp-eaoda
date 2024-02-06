@@ -6,7 +6,7 @@ metadata:
   namespace: frico
   name: eaoda-worker
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: eaoda-worker
@@ -14,14 +14,11 @@ spec:
     metadata:
       labels:
         app: eaoda-worker
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
       name: eaoda-worker
     spec:
       serviceAccountName: frico
-      nodeSelector:
-        tier: compute
+      # nodeSelector:
+      #   tier: compute
       containers:
         - name: worker
           env:
@@ -37,11 +34,6 @@ spec:
           command:
             - python
             - /app/worker.py
-          volumeMounts:
-            - name: logs
-              mountPath: /logs
-          ports:
-            - containerPort: 8080
           #   - readOnly: true
           #     mountPath: /certs
           #     name: webhook-certs
@@ -60,6 +52,3 @@ spec:
           #   initialDelaySeconds: 3
           #   periodSeconds: 5
       terminationGracePeriodSeconds: 20
-      volumes:
-        - name: logs
-          emptyDir: {}
