@@ -3,8 +3,13 @@ kind: Kustomization
 namespace: frico
 resources:
   - redis
-  - controller.deployment.yml
-  - worker.deployment.yml
+  - controller.yml
+  - balancer-controller.yml
+  # - worker.deployment.yml
+  - creator.yml
+  - deleter.yml
+  - watcher.yml
+  - rescheduler.yml
   - rbac.yml
   - sa.yml
 secretGenerator:

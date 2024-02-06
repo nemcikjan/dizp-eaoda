@@ -2,3 +2,4 @@
 manifests
 __pycache__
 .github
+eaoda-controller.py

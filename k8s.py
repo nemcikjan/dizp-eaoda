@@ -67,15 +67,6 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
         new_labels = {}
         new_annotations = {}
         new_exec_time = 0
-        # if pod is None:
-            # release_task(new_node_name, task_name)
-            # new_annotations["v2x.context/priority"] = str(task['p'])
-            # new_annotations["v2x.context/color"] = task['c']
-            # new_labels["arrival_time"] = str(int(time.time()))
-            # new_labels["frico"] = "true"
-            # new_labels["task_id"] = task_name
-            # logging.warning("We must fix this")
-            # return
         new_labels = pod.metadata.labels
         new_annotations = pod.metadata.annotations
         arrival_time = int(pod.metadata.labels["arrival_time"])
@@ -133,8 +124,6 @@ def watch_pods(stop_signal: Event):
                 if event_type == "ADDED":
                     logging.info(f"Pod {pod.metadata.name} succeeded")
                     enqueue_item("tasks_to_delete", {"name": pod.metadata.name, "namespace": pod.metadata.namespace, "node": pod.spec.node_name})
-                    delete_pod(pod.metadata.name, pod.metadata.namespace)
-                    handle_pod(pod.metadata.name, pod.spec.node_name)
             except Exception as e:
                 logging.warning(f"Error while handling pod deletion in thread {e}")
 

@@ -9,6 +9,13 @@ REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "")
 
+queues = {
+    "TASKS" : "tasks_queue",
+    "CREATE": "tasks_to_create",
+    "DELETE": "tasks_to_delete",
+    "RESCHEDULE": "tasks_to_reschedule"
+}
+
 class RedisClient():
     def __init__(self) -> None:
         self.redis = redis.Redis(host=REDIS_HOST, port=int(REDIS_PORT),password=REDIS_PASSWORD, decode_responses=True, protocol=3)
@@ -227,6 +234,7 @@ def handle_pod(task_id: str, node_name: str):
         release_task(node_name, task_id)
     except Exception as e:
         logging.warning(f"Handling pod failed {e}")
+        raise e
 
 def push_temp_task(t: str, task: dict[str, Any]):
     r.rpush(utils.temp_task_key(t), json.dumps(task))

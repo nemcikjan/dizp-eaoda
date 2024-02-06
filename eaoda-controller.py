@@ -4,7 +4,7 @@ from frico import FRICO, Task
 from prometheus_flask_exporter import PrometheusMetrics
 from prometheus_client import Counter, Gauge
 from k8s import init_nodes, prepare_and_create_pod, reschedule, delete_pod
-from frico_redis import dequeue_item, enqueue_item, is_admissable, release_task, init
+from frico_redis import dequeue_item, enqueue_item, is_admissable, release_task, init, queues
 import os
 import threading
 import http
@@ -16,7 +16,7 @@ import csv
 request_events: dict[str, threading.Event] = {}
 request_results: dict[str, tuple[bool, str, dict[str]]] = {}
 
-QUEUE_NAME = 'tasks_queue'
+QUEUE_NAME = queues.get('TASKS')
 
 allocated_tasks_counter = Counter('allocated_tasks', 'Allocated tasks per node', ['node', 'simulation'])
 unallocated_tasks_counter = Counter('unallocated_tasks', 'Unallocated tasks', ['simulation'])
@@ -35,10 +35,11 @@ LOG_PATH = os.environ.get("LOG_PATH")
 CURRENT_TIME = int(time.time())
 TEST_BED_PATH = os.path.join(os.environ.get("TEST_BED_PATH"),f'{SIMULATION_NAME}-{datetime.fromtimestamp(CURRENT_TIME).strftime('%Y-%m-%d-%H-%M-%S')}.csv')
 SIMULATION_NAME = SIMULATION_NAME + f"-{CURRENT_TIME}"
+LOG_LEVEL = os.environ.get("LOG_LEVEL", logging.INFO)
 
 eaoda = Flask(__name__)
 
-logging.basicConfig(filename=LOG_PATH, level=logging.INFO, 
+logging.basicConfig(filename=LOG_PATH, level=LOG_LEVEL, 
                     format='%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]')
 
 metrics = PrometheusMetrics(eaoda)
