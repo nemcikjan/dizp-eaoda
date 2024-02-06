@@ -1,0 +1,102 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: balancer-controller-nodeport
+  namespace: frico
+  labels:
+    app: balancer-controller
+spec:
+  selector:
+    app: balancer-controller
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+  type: NodePort
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: balancer-controller
+  namespace: frico
+  labels:
+    app: balancer-controller
+spec:
+  selector:
+    app: balancer-controller
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: balancer-controller
+  namespace: frico
+  name: balancer-controller
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: balancer-controller
+  template:
+    metadata:
+      labels:
+        app: balancer-controller
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+      name: balancer-controller
+    spec:
+      serviceAccountName: frico
+      # topologySpreadConstraints:
+      #   - maxSkew: 1
+      #     topologyKey: kubernetes.io/hostname
+      #     whenUnsatisfiable: DoNotSchedule
+      #     labelSelector:
+      #       matchLabels:
+      #         app: eaoda
+      #     matchLabelKeys:
+      #       - pod-template-hash
+      # nodeSelector:
+      #   tier: compute
+      containers:
+        - name: balancer-controller
+          env:
+            - name: REDIS_HOST
+              value: redis-master
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: redis-password
+          image: ghcr.io/nemcikjan/dizp-eaoda-controller
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--bind=0.0.0.0:8080"
+            - "--threads=4"
+            # - "--certfile=/certs/tls.crt"
+            # - "--keyfile=/certs/tls.key"
+            - "eaoda_balancer:eaoda_balancer"
+          ports:
+            - containerPort: 8080
+          #   - readOnly: true
+          #     mountPath: /certs
+          #     name: webhook-certs
+          readinessProbe:
+            httpGet:
+              path: /health
+              scheme: HTTP
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              scheme: HTTP
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+      terminationGracePeriodSeconds: 20

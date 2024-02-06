@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: eaoda
+  namespace: frico
+  name: eaoda
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eaoda
+  template:
+    metadata:
+      labels:
+        app: eaoda
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+      name: eaoda
+    spec:
+      serviceAccountName: frico
+      # topologySpreadConstraints:
+      #   - maxSkew: 1
+      #     topologyKey: kubernetes.io/hostname
+      #     whenUnsatisfiable: DoNotSchedule
+      #     labelSelector:
+      #       matchLabels:
+      #         app: eaoda
+      #     matchLabelKeys:
+      #       - pod-template-hash
+      # nodeSelector:
+      #   tier: compute
+      containers:
+        - name: logs
+          image: cr.fluentbit.io/fluent/fluent-bit:2.1.10
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PATH_TO_TAIL
+              value: /logs/app.log
+            - name: LOG_LEVEL
+              value: warning
+          volumeMounts:
+            - name: logs
+              mountPath: /logs
+            - mountPath: /fluent-bit/etc/fluent-bit.conf
+              name: fluentbit-config
+              subPath: fluent-bit.conf
+              readOnly: true
+        - name: eaoda
+          env:
+            - name: MAX_REALLOC
+              value: "4"
+            - name: SIMULATION_NAME
+              value: LuST
+            - name: LOG_PATH
+              value: /logs/app.log
+            - name: TEST_BED_PATH
+              value: /test-bed
+            - name: REDIS_HOST
+              value: redis-master
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: redis-password
+          image: ghcr.io/nemcikjan/dizp-eaoda-controller
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--bind=0.0.0.0:8080"
+            - "--threads=4"
+            # - "--certfile=/certs/tls.crt"
+            # - "--keyfile=/certs/tls.key"
+            - "eaoda:eaoda"
+          volumeMounts:
+            - name: logs
+              mountPath: /logs
+            - name: test-bed
+              mountPath: /test-bed
+          ports:
+            - containerPort: 8080
+          #   - readOnly: true
+          #     mountPath: /certs
+          #     name: webhook-certs
+          readinessProbe:
+            httpGet:
+              path: /health
+              scheme: HTTP
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              scheme: HTTP
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+      terminationGracePeriodSeconds: 20
+      volumes:
+        - name: fluentbit-config
+          configMap:
+            name: fluentbit-config
+        - name: logs
+          emptyDir: {}
+        - name: test-bed
+          # mount /data/foo, but only if that directory already exists
+          hostPath:
+            path: /mnt1/eaoda # directory location on host
+            type: DirectoryOrCreate # this field is optional
