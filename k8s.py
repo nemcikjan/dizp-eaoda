@@ -65,6 +65,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
             pod = V1.read_namespaced_pod(name=task_name, namespace=namespace)
         except Exception as e:
             logging.warning(f"Got you fucker {task_name}")
+            raise e
             release_task(new_node_name, task_name)
             return
 
@@ -74,6 +75,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
                 logging.info(f"Pod {task_name} deleted due rescheduling")
             except Exception as e:
                 logging.warning(f"Exception when deleting pod during rescheduling: {e}")
+                raise e
                 release_task(new_node_name, task_name)
  
         new_labels = {}
@@ -93,6 +95,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
             task = get_task(new_node_name, task_name)
         except Exception as e:
             logging.warning(f"Still unable to get task {task_name} on node {new_node_name}: {e}")
+            raise e
             release_task(new_node_name, task_name)
             return
         del new_labels["eaoda-phase"]
@@ -108,6 +111,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
             return response
         except Exception as e:
             logging.warning(f"Exception when creating pod during rescheduling: {e}")
+            raise e
             release_task(new_node_name, task_name)
             return
     except Exception as e:

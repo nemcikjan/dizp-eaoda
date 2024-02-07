@@ -3,7 +3,7 @@ import os
 import signal
 import sys
 import threading
-from frico_redis import dequeue_item, queues, remove_from_queue
+from frico_redis import dequeue_item, queues, release_task, remove_from_queue
 from k8s import label_pod, reschedule
 
 
@@ -35,6 +35,10 @@ def reschdule_pod():
                 _ = reschedule(pod["name"], pod["namespace"], pod["node"])
             except Exception as e:
                 logging.warning(f"Unable to delete pod {pod["name"]}: {e}")
+                try:
+                    release_task(task=pod["name"], node=pod["node"])
+                except Exception as e:
+                    logging.warning(f"Unable to release task {pod["name"]}")
         else:
             logging.warning("Unable to parse pod")
 
