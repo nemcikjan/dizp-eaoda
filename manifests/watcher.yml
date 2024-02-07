@@ -6,7 +6,9 @@ metadata:
   namespace: frico
   name: watcher-worker
 spec:
-  replicas: 2
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: watcher-worker
@@ -17,6 +19,7 @@ spec:
       name: watcher-worker
     spec:
       serviceAccountName: frico
+      automountServiceAccountToken: true
       containers:
         - name: deleter
           env:

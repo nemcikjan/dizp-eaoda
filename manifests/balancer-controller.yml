@@ -38,6 +38,8 @@ metadata:
   name: balancer-controller
 spec:
   replicas: 3
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: balancer-controller
@@ -51,6 +53,8 @@ spec:
       name: balancer-controller
     spec:
       serviceAccountName: frico
+      automountServiceAccountToken: true
+
       # topologySpreadConstraints:
       #   - maxSkew: 1
       #     topologyKey: kubernetes.io/hostname

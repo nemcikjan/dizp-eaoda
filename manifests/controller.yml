@@ -7,6 +7,8 @@ metadata:
   name: eaoda
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: eaoda
@@ -18,8 +20,10 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
       name: eaoda
+
     spec:
       serviceAccountName: frico
+      automountServiceAccountToken: true
       # topologySpreadConstraints:
       #   - maxSkew: 1
       #     topologyKey: kubernetes.io/hostname
