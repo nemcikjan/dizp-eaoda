@@ -7,6 +7,8 @@ helmCharts:
     version: ^18.11
     valuesInline:
       architecture: standalone
+      image:
+        tag: 6.2.14-debian-11-r6
       # global:
       #   storageClass: microk8s-hostpath
       auth:

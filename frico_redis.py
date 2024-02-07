@@ -19,7 +19,7 @@ queues = {
 
 class RedisClient():
     def __init__(self) -> None:
-        self.redis = redis.Redis(host=REDIS_HOST, port=int(REDIS_PORT),password=REDIS_PASSWORD, decode_responses=True, protocol=3)
+        self.redis = redis.Redis(host=REDIS_HOST, port=int(REDIS_PORT),password=REDIS_PASSWORD, decode_responses=True)
         self.redis.execute_command('CLIENT TRACKING ON')
 
     def get_redis(self):
