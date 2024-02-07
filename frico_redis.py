@@ -1,6 +1,7 @@
 import json
 import os
 from typing import Optional, Any
+from pottery import Redlock
 import redis
 import logging
 import utils
@@ -95,25 +96,38 @@ def calculate_obj(prio: int, node: str, cpu: int, mem: int) -> float:
 def get_node(node: str) -> dict:
     return r.hgetall(utils.knapsack_key(node))
 
+def acquire_lock(key: str):
+    return Redlock(key=key, masters={r}, auto_release_time=.5)
+
+def release_lock(rl: Redlock):
+    return rl.release()
+
 def update_node(node: str) -> None:
-    r.zadd(utils.sorted_knapsacks_key, {node: calculate_capacity(node)}, xx=True)
+    with acquire_lock(utils.sorted_knapsacks_key):
+        r.zadd(utils.sorted_knapsacks_key, {node: calculate_capacity(node)}, xx=True)
 
 def increase_capacity(node: str, cpu: int, mem: int) -> None:
-    r.hincrby(utils.knapsack_key(node), "cpu_free", cpu)
-    r.hincrby(utils.knapsack_key(node), "memory_free", mem)
+    key = utils.knapsack_key(node)
+    with acquire_lock(key):
+        r.hincrby(key, "cpu_free", cpu)
+        r.hincrby(key, "memory_free", mem)
     update_node(node)
 
 def decrease_capacity(node: str, cpu: int, mem: int) -> None:
-    r.hincrby(utils.knapsack_key(node), "cpu_free", -cpu)
-    r.hincrby(utils.knapsack_key(node), "memory_free", -mem)
+    key = utils.knapsack_key(node)
+    with acquire_lock(key):
+        r.hincrby(key, "cpu_free", -cpu)
+        r.hincrby(key, "memory_free", -mem)
     update_node(node)
 
 def allocate_task(node: str, task: str, cpu: int, mem: int, prio: int, color: int) -> None:
     logging.info(f"Allocation of task {task} to node {node}")
     try:
-        r.hset(utils.task_key(node, task), mapping={'cpu': cpu, 'p': prio, 'mem': mem, 'c': color})
+        with acquire_lock(utils.task_key(node, task)):
+            r.hset(utils.task_key(node, task), mapping={'cpu': cpu, 'p': prio, 'mem': mem, 'c': color})
         decrease_capacity(node, cpu, mem)
-        r.zadd(utils.sorted_tasks_per_node_key(node), {task: calculate_obj(prio, node, cpu, mem)})
+        with acquire_lock(utils.sorted_tasks_per_node_key(node)):
+            r.zadd(utils.sorted_tasks_per_node_key(node), {task: calculate_obj(prio, node, cpu, mem)})
     except Exception as e:
         logging.warning(f"Exception occured while allocating {e}")
 
@@ -125,9 +139,11 @@ def release_task(node: str, task: str) -> None:
         r.delete(key)
     except Exception as e:
         logging.warning(f"Unable to delete key {key}: {e}")
+
     increase_capacity(node, cpu, mem)
     try:
-        r.zrem(utils.sorted_tasks_per_node_key(node), task)
+        with acquire_lock(utils.sorted_tasks_per_node_key(node)):
+            r.zrem(utils.sorted_tasks_per_node_key(node), task)
     except Exception as e:
         logging.warning(f"Unable to remove task {task} from sorted set on node {node}: {e}")
 
@@ -206,7 +222,6 @@ def init(nodes: dict[str, dict[str, bool | int]]) -> None:
             else:
                 mapping[a] = str(b)
 
-
         r.hset(utils.knapsack_key(k), mapping=mapping)
         add_node(k)
 
@@ -248,24 +263,6 @@ def temp_len(task: str):
 
 def flush_temp(task: str):
     r.delete(utils.temp_task_key(task))
-
-def enqueue_pod_to_delete(pod):
-    """
-    Enqueue an item to the queue.
-    """
-    logging.info(f"Enqueueing {json.dumps(pod)}")
-    r.rpush("tasks_to_delete", json.dumps(pod))
-
-def dequeue_pod_to_delete(timeout=0):
-    """
-    Dequeue an item from the queue. Blocks until an item is available or the timeout is reached.
-    Timeout of 0 means block indefinitely.
-    """
-    item = r.blpop('tasks_to_delete', timeout=timeout)
-    if item:
-        # item is a tuple (queue_name, value), so return the value
-        return json.loads(item[1])
-    return None
 
 def remove_from_queue(queue: str, value):
     r.lrem(queue, 1, json.dumps(value))
