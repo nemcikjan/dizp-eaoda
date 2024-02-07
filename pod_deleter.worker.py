@@ -31,7 +31,6 @@ def delete():
         pod = dequeue_item(QUEUE_NAME)
         if pod is not None:
             try:
-                remove_from_queue(queues.get('RESCHEDULE'), pod["name"])
                 _ = delete_pod(pod["name"], pod["namespace"])
             except Exception as e:
                 logging.warning(f"Unable to delete pod {pod["name"]}: {e}")

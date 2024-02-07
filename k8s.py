@@ -22,7 +22,7 @@ class PodData(object):
 
 def init_nodes() -> dict[str, dict[str, bool | int]]:
     ret = V1.list_node()
-    return {n.metadata.name: {key: True for key in str.split(n.metadata.annotations["colors"], sep=",")} | {'cpu': int(.95 * parse_cpu_to_millicores(n.status.capacity["cpu"])), 'colors': n.metadata.annotations["colors"], 'memory': int(.95 * parse_memory_to_bytes(n.status.capacity["memory"]))} for n in ret.items}
+    return {n.metadata.name: {key: True for key in str.split(n.metadata.annotations["colors"], sep=",")} | {'cpu': int(.9 * parse_cpu_to_millicores(n.status.capacity["cpu"])), 'colors': n.metadata.annotations["colors"], 'memory': int(.9 * parse_memory_to_bytes(n.status.capacity["memory"]))} for n in ret.items}
 
 def delete_pod(pod_name: str, namespace: str):
     try:
@@ -74,6 +74,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
                 logging.info(f"Pod {task_name} deleted due rescheduling")
             except Exception as e:
                 logging.warning(f"Exception when deleting pod during rescheduling: {e}")
+                release_task(new_node_name, task_name)
  
         new_labels = {}
         new_annotations = {}
@@ -100,7 +101,7 @@ def reschedule(task_name: str, namespace: str, new_node_name: str):
         new_labels["exec_time"] = str(new_exec_time)
         new_annotations["v2x.context/exec_time"] = str(new_exec_time)
         
-        ppod = PodData(name=task_name, labels=new_labels, annotations=new_annotations, cpu_requirement=task["cpu"], memory_requirement=task["mem"], exec_time=new_exec_time, node_name=new_node_name)
+        ppod = PodData(name=task_name, labels=new_labels, annotations=new_annotations, cpu_requirement=int(task["cpu"]), memory_requirement=int(task["mem"]), exec_time=new_exec_time, node_name=new_node_name)
         try:
             response = create_pod(ppod, namespace)
             logging.info(f"Pod {task_name} rescheduled")

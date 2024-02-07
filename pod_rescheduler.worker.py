@@ -32,7 +32,6 @@ def reschdule_pod():
         if pod is not None:
             try:
                 _ = label_pod(pod["name"], pod["namespace"], "eaoda-phase", "rescheduling")
-                remove_from_queue(queues.get('DELETE'), pod["name"])
                 _ = reschedule(pod["name"], pod["namespace"], pod["node"])
             except Exception as e:
                 logging.warning(f"Unable to delete pod {pod["name"]}: {e}")

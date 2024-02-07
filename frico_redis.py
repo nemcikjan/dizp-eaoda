@@ -267,5 +267,5 @@ def dequeue_pod_to_delete(timeout=0):
         return json.loads(item[1])
     return None
 
-def remove_from_queue(queue: str, value: str):
-    r.lrem(queue, 1, value)
+def remove_from_queue(queue: str, value):
+    r.lrem(queue, 1, json.dumps(value))
