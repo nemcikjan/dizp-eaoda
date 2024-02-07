@@ -69,6 +69,8 @@ spec:
       containers:
         - name: balancer-controller
           env:
+            - name: LOG_LEVEL
+              value: WARNING
             - name: REDIS_HOST
               value: redis-master
             - name: REDIS_PASSWORD

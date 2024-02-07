@@ -38,7 +38,7 @@ def reschdule_pod():
                 try:
                     release_task(task=pod["name"], node=pod["node"])
                 except Exception as e:
-                    logging.warning(f"Unable to release task {pod["name"]}")
+                    logging.warning(f"Unable to release task {pod["name"]}: {e}")
         else:
             logging.warning("Unable to parse pod")
 
