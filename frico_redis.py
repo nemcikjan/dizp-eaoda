@@ -133,12 +133,13 @@ def allocate_task(node: str, task: str, cpu: int, mem: int, prio: int, color: in
 
 def release_task(node: str, task: str) -> None:
     key = utils.task_key(node,task)
-    cpu = int(r.hget(key, 'cpu'))
-    mem = int(r.hget(key, 'mem'))
-    try:
-        r.delete(key)
-    except Exception as e:
-        logging.warning(f"Unable to delete key {key}: {e}")
+    with acquire_lock(key):
+        cpu = int(r.hget(key, 'cpu'))
+        mem = int(r.hget(key, 'mem'))
+        try:
+            r.delete(key)
+        except Exception as e:
+            logging.warning(f"Unable to delete key {key}: {e}")
 
     increase_capacity(node, cpu, mem)
     try:
@@ -163,7 +164,7 @@ def has_color_node(node: str, color: str) -> bool:
     return r.hexists(utils.knapsack_key(node), color)
 
 def get_node_tasks(node: str) -> list[str]:
-    return r.zrange(utils.sorted_tasks_per_node_key(node), start=0, end=-1)
+    return r.zrevrange(utils.sorted_tasks_per_node_key(node), start=0, end=-1)
 
 def number_of_nodes() -> int:
     return r.zcard(utils.sorted_knapsacks_key)
@@ -195,10 +196,11 @@ def is_admissable(cpu: int, mem: int, color: str) -> bool:
 
 def find_applicable(cpu: int, mem: int, color: str) -> Optional[str]:
     logging.debug(f"Zrange {r.zrange(utils.sorted_knapsacks_key, start=0, end=-1)}")
-    for n in r.zrange(utils.sorted_knapsacks_key, start=0, end=-1):
-        logging.debug(f"Zrange {n}")
-        if has_color_node(n, color) and can_allocate(n, cpu, mem):
-            return n
+    with acquire_lock(utils.sorted_knapsacks_key):
+        for n in r.zrange(utils.sorted_knapsacks_key, start=0, end=-1):
+            logging.debug(f"Zrange {n}")
+            if has_color_node(n, color) and can_allocate(n, cpu, mem):
+                return n
     return None
 
 def can_allocate(node: str, cpu: int, mem: int) -> bool:

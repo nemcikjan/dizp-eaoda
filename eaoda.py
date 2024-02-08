@@ -14,7 +14,7 @@ import csv
 
 QUEUE_NAME = queues.get('TASKS')
 
-allocated_tasks_counter = Counter('allocated_tasks', 'Allocated tasks per node', ['node', 'simulation'])
+allocated_tasks_counter = Counter('allocated_tasks', 'Allocated tasks per node', ['node', 'simulation', 'priority', 'color'])
 unallocated_tasks_counter = Counter('unallocated_tasks', 'Unallocated tasks', ['simulation', 'color', 'priority'])
 total_tasks_counter = Counter('total_tasks', 'Total tasks', ['simulation', 'color', 'priority'])
 reallocated_tasks_counter = Counter('reallocated_tasks', 'Realocated tasks', ['simulation', 'color', 'priority'])

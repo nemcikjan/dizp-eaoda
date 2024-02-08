@@ -1,6 +1,9 @@
 import logging
-from frico_redis import calculate_obj, get_node, allocate_task, has_color_node, release_task, can_allocate, find_applicable, get_nodes, get_task, get_node_colors, get_max, get_node_tasks, number_of_nodes, add_node, push_temp_task, pop_temp_task, flush_temp, temp_len
+
+from pottery import Redlock
+from frico_redis import acquire_lock, calculate_obj, get_node, allocate_task, has_color_node, release_lock, release_task, can_allocate, find_applicable, get_nodes, get_task, get_node_colors, get_max, get_node_tasks, number_of_nodes, add_node, push_temp_task, pop_temp_task, flush_temp, temp_len
 from typing import Optional
+import utils
 
 class Task(object):
     def __init__(self, id: str, name: str, cpu_requirement: int, memory_requirement: int, priority: int, color: str, arrival_time: int, exec_time: int):
@@ -45,17 +48,19 @@ class FRICO:
         else:
             allocated = False
             choosen_node: Optional[str] = None
-            # searched_knapsacks: list[str] = []
+
             for knapsack in get_nodes():
-            # while number_of_nodes() > 0 and not choosen_node:
-                # knapsack = get_max()
                 if has_color_node(knapsack, task.color):
+                    # lock knapsack
+                    lkm = acquire_lock(utils.knapsack_key(knapsack))
+                    lks = acquire_lock(utils.sorted_knapsacks_key)
                     for t in get_node_tasks(knapsack):
                         t_task = get_task(knapsack, t)
+                        # lock task
                         logging.info(f"Suspect {t}:{knapsack} {t_task}")
                         for o_k in get_nodes():
                             try:
-                                if o_k is not knapsack and has_color_node(o_k, t_task['c']) and can_allocate(knapsack, int(t_task['cpu']), int(t_task['mem'])):
+                                if o_k is not knapsack and has_color_node(o_k, t_task['c']) and can_allocate(knapsack, int(t_task['cpu']), int(t_task['mem'])):                                
                                     release_task(knapsack, t)
                                     allocate_task(o_k, t, int(t_task['cpu']), int(t_task['mem']), int(t_task['p']), t_task['c'])
                                     tasks_to_reschedule[t] = o_k
@@ -64,20 +69,16 @@ class FRICO:
                                 logging.warning(f"Found random 'c' access {e}")
                                 logging.info(f"Releasing {t} from {knapsack} due error")
                                 release_task(knapsack, t)
-
+                        
+                        
                         applicable = self.frico_find_applicable(task)    
                         if (applicable is not None):
                             allocated = True
                             choosen_node = applicable
-                            break            
-
-                # searched_knapsacks.append(knapsack)
-
-            # for n in searched_knapsacks:
-            #     try:
-            #         add_node(n)
-            #     except Exception as e:
-            #         logging.warning(f"Error while addig node {n}: {e}")
+                            break
+                    
+                    release_lock(lkm)
+                    release_lock(lks)            
 
             if choosen_node is not None:
                 self.frico_allocate_task(choosen_node, task)
@@ -85,16 +86,13 @@ class FRICO:
             elif allocated and choosen_node is None:
                 raise Exception("Something gone wrong")
             else: 
-                # tasks = SortedList()
-                tasks: list[str] = []
+                tasks: list[tuple[str, Redlock]] = []
                 s_allocated = False
                 allocated_node = ''
-                # s_searched_knapsacks : list[str] = []
                 for knapsack in get_nodes():
-                # while number_of_nodes() > 0 and not s_allocated:
-                    # knapsack = get_max()
-                    # colors = get_node_colors(knapsack)
                     if has_color_node(knapsack, task.color):
+                        lkm = acquire_lock(utils.knapsack_key(knapsack))
+                        lks = acquire_lock(utils.sorted_knapsacks_key)
                         tasks = []
                         flush_temp(task.name)
                         cummulative_cpu = 0
@@ -106,10 +104,12 @@ class FRICO:
                             try:
                                 if calculate_obj(task.priority, knapsack, task.cpu_requirement, task.memory_requirement) <= self.calculate_potential_objective(task, int(k_n['cpu_cap']), int(k_n['memory_cap'])):
                                     t_t = get_task(knapsack, t)
+                                    # lock task
+                                    lt = acquire_lock(utils.sorted_tasks_per_node_key(knapsack))
                                     t_t["name"] = t
                                     cummulative_cpu += int(t_t['cpu'])
                                     cummulatice_memory += int(t_t['mem'])
-                                    tasks.append(t)
+                                    tasks.append((t, lt))
                                     push_temp_task(task.name, t_t)
                                 if cummulative_cpu >= task.cpu_requirement and cummulatice_memory >= task.memory_requirement:
                                     # there are already enough tasks to relax node N in favor of task T
@@ -121,7 +121,10 @@ class FRICO:
                                 logging.warning(f"Error while trying to find space {e}")
                                 logging.info(f"Releasing {t} from {knapsack} due error")
                                 release_task(knapsack, t)
-                        
+                        for _, la in tasks:
+                            release_lock(la)
+                        release_lock(lkm)
+                        release_lock(lks)
                         if has_enough_space:
                             # here we know that all tasks in the list must be offloaded in order to relax node N for task T
                             for t in tasks:
@@ -129,21 +132,13 @@ class FRICO:
                             self.frico_allocate_task(knapsack, task)
                             s_allocated = True
                             allocated_node = knapsack
-                    # s_searched_knapsacks.append(knapsack)
-                
-                # for n in s_searched_knapsacks:
-                #     add_node(n)
 
                 if s_allocated:
                     while temp_len(task.name) > 0:
-                    # for t in tasks:
-                        # l_searched_knapsacks: list[str] = []
                         task_allocated = False
                         t = pop_temp_task(task.name)
                         logging.info(f"Phase 3: task {t}")
                         for knapsack in get_nodes():
-                        # while number_of_nodes() > 0 and not task_allocated:
-                            # knapsack = get_max()
                             logging.info(f"Phase 3: node {knapsack}")                        
                             try:
                                 if has_color_node(knapsack, t['c']) and can_allocate(knapsack,int(t['cpu']), int(t['mem'])):
