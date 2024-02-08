@@ -22,7 +22,7 @@ objective_value_gauge = Gauge('objective_value', 'Current objective value', ['si
 offloaded_tasks_counter = Counter('offloaded_tasks', 'Offloaded tasks', ['simulation', 'color', 'priority'])
 processing_pod_time = Gauge('pod_processing_time', 'Task allocation time', ['pod', 'simulation'])
 priority_counter = Gauge('priority', 'Task priority', ['pod', 'priority', 'color', 'simulation'])
-unallocated_priority_counter = Gauge('unallocated_priorities', 'Unallocated task priority', ['priority', 'simulation'])
+unallocated_priority_counter = Gauge('unallocated_priorities', 'Unallocated task priority', ['priority', 'color', 'simulation'])
 
 MAX_REALLOC = int(os.environ.get("MAX_REALLOC"))
 SIMULATION_NAME = os.environ.get("SIMULATION_NAME")

@@ -204,9 +204,11 @@ def find_applicable(cpu: int, mem: int, color: str) -> Optional[str]:
     return None
 
 def can_allocate(node: str, cpu: int, mem: int) -> bool:
-    node_cpu = int(r.hget(utils.knapsack_key(node), 'cpu_free'))
-    node_mem = int(r.hget(utils.knapsack_key(node), 'memory_free'))
-    return node_cpu >= cpu and node_mem >= mem
+    key = utils.knapsack_key(node)
+    with acquire_lock(key):
+        node_cpu = int(r.hget(utils.knapsack_key(node), 'cpu_free'))
+        node_mem = int(r.hget(utils.knapsack_key(node), 'memory_free'))
+        return node_cpu >= cpu and node_mem >= mem
 
 def add_node(node: str) -> None:
     r.zadd(utils.sorted_knapsacks_key, {node: calculate_capacity(node)})

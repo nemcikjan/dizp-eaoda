@@ -52,8 +52,8 @@ class FRICO:
             for knapsack in get_nodes():
                 if has_color_node(knapsack, task.color):
                     # lock knapsack
-                    lkm = acquire_lock(utils.knapsack_key(knapsack))
-                    lks = acquire_lock(utils.sorted_knapsacks_key)
+                    # lkm = acquire_lock(utils.knapsack_key(knapsack))
+                    # lks = acquire_lock(utils.sorted_knapsacks_key)
                     for t in get_node_tasks(knapsack):
                         t_task = get_task(knapsack, t)
                         # lock task
@@ -68,7 +68,10 @@ class FRICO:
                             except Exception as e:
                                 logging.warning(f"Found random 'c' access {e}")
                                 logging.info(f"Releasing {t} from {knapsack} due error")
-                                release_task(knapsack, t)
+                                try:
+                                    release_task(knapsack, t)
+                                except Exception as ex:
+                                    logging.warning(f"Releasing {t} from {knapsack} failed: {ex}")
                         
                         
                         applicable = self.frico_find_applicable(task)    
@@ -77,8 +80,8 @@ class FRICO:
                             choosen_node = applicable
                             break
                     
-                    release_lock(lkm)
-                    release_lock(lks)            
+                    # release_lock(lkm)
+                    # release_lock(lks)            
 
             if choosen_node is not None:
                 self.frico_allocate_task(choosen_node, task)
@@ -86,13 +89,13 @@ class FRICO:
             elif allocated and choosen_node is None:
                 raise Exception("Something gone wrong")
             else: 
-                tasks: list[tuple[str, Redlock]] = []
+                tasks: list[str] = []
                 s_allocated = False
                 allocated_node = ''
                 for knapsack in get_nodes():
                     if has_color_node(knapsack, task.color):
-                        lkm = acquire_lock(utils.knapsack_key(knapsack))
-                        lks = acquire_lock(utils.sorted_knapsacks_key)
+                        # lkm = acquire_lock(utils.knapsack_key(knapsack))
+                        # lks = acquire_lock(utils.sorted_knapsacks_key)
                         tasks = []
                         flush_temp(task.name)
                         cummulative_cpu = 0
@@ -105,11 +108,11 @@ class FRICO:
                                 if calculate_obj(task.priority, knapsack, task.cpu_requirement, task.memory_requirement) <= self.calculate_potential_objective(task, int(k_n['cpu_cap']), int(k_n['memory_cap'])):
                                     t_t = get_task(knapsack, t)
                                     # lock task
-                                    lt = acquire_lock(utils.sorted_tasks_per_node_key(knapsack))
+                                    # lt = acquire_lock(utils.sorted_tasks_per_node_key(knapsack))
                                     t_t["name"] = t
                                     cummulative_cpu += int(t_t['cpu'])
                                     cummulatice_memory += int(t_t['mem'])
-                                    tasks.append((t, lt))
+                                    tasks.append(t)
                                     push_temp_task(task.name, t_t)
                                 if cummulative_cpu >= task.cpu_requirement and cummulatice_memory >= task.memory_requirement:
                                     # there are already enough tasks to relax node N in favor of task T
@@ -121,10 +124,10 @@ class FRICO:
                                 logging.warning(f"Error while trying to find space {e}")
                                 logging.info(f"Releasing {t} from {knapsack} due error")
                                 release_task(knapsack, t)
-                        for _, la in tasks:
-                            release_lock(la)
-                        release_lock(lkm)
-                        release_lock(lks)
+                        # for _, la in tasks:
+                        #     release_lock(la)
+                        # release_lock(lkm)
+                        # release_lock(lks)
                         if has_enough_space:
                             # here we know that all tasks in the list must be offloaded in order to relax node N for task T
                             for t in tasks:
