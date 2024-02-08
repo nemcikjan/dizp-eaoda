@@ -64,8 +64,8 @@ spec:
       #         app: eaoda
       #     matchLabelKeys:
       #       - pod-template-hash
-      # nodeSelector:
-      #   tier: compute
+      nodeSelector:
+        tier: management
       containers:
         - name: balancer-controller
           env:

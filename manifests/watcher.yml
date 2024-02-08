@@ -20,6 +20,8 @@ spec:
     spec:
       serviceAccountName: frico
       automountServiceAccountToken: true
+      nodeSelector:
+        tier: management
       containers:
         - name: deleter
           env:
