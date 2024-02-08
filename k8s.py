@@ -32,14 +32,14 @@ def delete_pod(pod_name: str, namespace: str):
     except Exception as e:
         logging.warning(f"Exception when deleting pod: {e}")
         raise e
-    
-def create_pod(pod_data: PodData, namespace: str):
+
+def create_pod(pod_data: PodData, namespace: str, asyn=False):
     pod = client.V1Pod()
     pod.metadata = client.V1ObjectMeta(name=pod_data.name, labels=pod_data.labels, annotations=pod_data.annotations)
     new_resources = client.V1ResourceRequirements(requests={"cpu": f"{str(pod_data.cpu_requirement)}m", "memory": f"{str(pod_data.memory_requirement)}"})
     pod.spec = client.V1PodSpec(node_selector={"name": pod_data.node_name},  restart_policy="Never", containers=[client.V1Container(name="task", image="alpine:3.19", command=["/bin/sh"], args=["-c", f"sleep {pod_data.exec_time} && exit 0"], resources=new_resources)])
     try:
-        response = V1.create_namespaced_pod(namespace=namespace, body=pod)
+        response = V1.create_namespaced_pod(namespace=namespace, body=pod, async_req=asyn)
         logging.info(f"Pod {pod_data.name} created")
         return response
     except Exception as e:
@@ -147,7 +147,7 @@ def watch_pods(stop_signal: Event):
     logging.info("Stopping thread")
     w.stop()
 
-def prepare_and_create_pod(pod_data: dict[str, Any]) -> dict[str, str]:
+def prepare_and_create_pod(pod_data: dict[str, Any], asyn=False) -> dict[str, str]:
     annotations = {
         "v2x.context/priority": str(pod_data["priority"]),
         "v2x.context/color": pod_data["color"],
@@ -162,8 +162,8 @@ def prepare_and_create_pod(pod_data: dict[str, Any]) -> dict[str, str]:
     }
     p = PodData(name=pod_data['task_id'], annotations=annotations, labels=labels, cpu_requirement=pod_data["cpu"], memory_requirement=pod_data["memory"], exec_time=int(pod_data["exec_time"]), node_name=pod_data["node_name"])
     try:
-        _ = create_pod(p, "tasks")
-        return {"message": f"Pod {pod_data['task_id']} created"}
+        thr = create_pod(p, "tasks", asyn)
+        return thr
     except Exception as e:
         logging.error(f"Error while creating pod: {e}")
         return {"message": f"Error while creating pod: {e}"}

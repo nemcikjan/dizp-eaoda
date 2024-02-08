@@ -40,7 +40,7 @@ def create():
         # }
         if pod is not None:
             try:
-                _ = prepare_and_create_pod(pod)
+                _ = prepare_and_create_pod(pod, True)
             except Exception as e:
                 logging.warning(f"Unable to create pod {pod["task_id"]}: {e}")
         else:
