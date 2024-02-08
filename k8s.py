@@ -166,4 +166,4 @@ def prepare_and_create_pod(pod_data: dict[str, Any], asyn=False) -> dict[str, st
         return thr
     except Exception as e:
         logging.error(f"Error while creating pod: {e}")
-        return {"message": f"Error while creating pod: {e}"}
+        raise e

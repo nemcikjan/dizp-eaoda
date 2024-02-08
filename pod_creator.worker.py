@@ -3,7 +3,7 @@ import os
 import signal
 import sys
 import threading
-from frico_redis import dequeue_item, queues
+from frico_redis import dequeue_item, queues, release_task
 from k8s import prepare_and_create_pod
 
 QUEUE_NAME = queues.get('CREATE')
@@ -40,8 +40,12 @@ def create():
         # }
         if pod is not None:
             try:
-                _ = prepare_and_create_pod(pod, True)
+                _ = prepare_and_create_pod(pod)
             except Exception as e:
+                try:
+                    release_task(pod["node_name"], pod["task_id"])
+                except Exception as ex:
+                    logging.warning(ex)
                 logging.warning(f"Unable to create pod {pod["task_id"]}: {e}")
         else:
             logging.warning("Unable to parse pod")
