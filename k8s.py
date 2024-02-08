@@ -22,7 +22,7 @@ class PodData(object):
 
 def init_nodes() -> dict[str, dict[str, bool | int]]:
     ret = V1.list_node()
-    return {n.metadata.name: {key: True for key in str.split(n.metadata.annotations["colors"], sep=",")} | {'cpu': int(.9 * parse_cpu_to_millicores(n.status.capacity["cpu"])), 'colors': n.metadata.annotations["colors"], 'memory': int(.9 * parse_memory_to_bytes(n.status.capacity["memory"]))} for n in ret.items}
+    return {n.metadata.name: {key: True for key in str.split(n.metadata.annotations["colors"], sep=",")} | {'cpu': int(.9 * parse_cpu_to_millicores(n.status.capacity["cpu"])), 'colors': n.metadata.annotations["colors"], 'memory': int(.9 * parse_memory_to_bytes(n.status.capacity["memory"]))} for n in ret.items if n.metadata.labels["tier"] == "compute"}
 
 def delete_pod(pod_name: str, namespace: str):
     try:
