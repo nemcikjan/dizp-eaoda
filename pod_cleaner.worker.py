@@ -2,7 +2,7 @@ from kubernetes import client, config
 import time
 from frico_redis import enqueue_item, queues
 
-config.load_kube_config()
+config.load_config()
 v1 = client.CoreV1Api()
 
 def check_pods_status(namespace='default'):
