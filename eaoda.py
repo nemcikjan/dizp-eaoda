@@ -15,13 +15,13 @@ import csv
 QUEUE_NAME = queues.get('TASKS')
 
 allocated_tasks_counter = Counter('allocated_tasks', 'Allocated tasks per node', ['node', 'simulation'])
-unallocated_tasks_counter = Counter('unallocated_tasks', 'Unallocated tasks', ['simulation'])
-total_tasks_counter = Counter('total_tasks', 'Total tasks', ['simulation'])
-reallocated_tasks_counter = Counter('reallocated_tasks', 'Realocated tasks', ['simulation'])
+unallocated_tasks_counter = Counter('unallocated_tasks', 'Unallocated tasks', ['simulation', 'color', 'priority'])
+total_tasks_counter = Counter('total_tasks', 'Total tasks', ['simulation', 'color', 'priority'])
+reallocated_tasks_counter = Counter('reallocated_tasks', 'Realocated tasks', ['simulation', 'color', 'priority'])
 objective_value_gauge = Gauge('objective_value', 'Current objective value', ['simulation'])
-offloaded_tasks_counter = Counter('offloaded_tasks', 'Offloaded tasks', ['simulation'])
+offloaded_tasks_counter = Counter('offloaded_tasks', 'Offloaded tasks', ['simulation', 'color', 'priority'])
 processing_pod_time = Gauge('pod_processing_time', 'Task allocation time', ['pod', 'simulation'])
-priority_counter = Gauge('priority', 'Task priority', ['pod', 'priority', 'simulation'])
+priority_counter = Gauge('priority', 'Task priority', ['pod', 'priority', 'color', 'simulation'])
 unallocated_priority_counter = Gauge('unallocated_priorities', 'Unallocated task priority', ['priority', 'simulation'])
 
 MAX_REALLOC = int(os.environ.get("MAX_REALLOC"))
@@ -90,7 +90,7 @@ def process_pod():
             
             logging.info(f"Name: {pod_name} Priority: {priority} Color: {color} Exec time: {exec_time}")
             task = Task(pod_name, pod_name, cpu, memory, priority, color, arrival_time, exec_time)
-            total_tasks_counter.labels(simulation=SIMULATION_NAME).inc()
+            total_tasks_counter.labels(simulation=SIMULATION_NAME, priority=str(priority), color=color).inc()
 
             node_name = ''
             shit_to_be_done: dict[str, str] = {}
@@ -105,20 +105,21 @@ def process_pod():
             allowed = node_name != ''
             processing_pod_time.labels(pod=pod_name, simulation=SIMULATION_NAME).set(frico_end_time - frico_start_time)
             if allowed:
-                allocated_tasks_counter.labels(node=node_name, simulation=SIMULATION_NAME).inc()
-                priority_counter.labels(simulation=SIMULATION_NAME, pod=pod_name, priority=str(task.priority)).inc()
+                allocated_tasks_counter.labels(node=node_name, simulation=SIMULATION_NAME, priority=str(priority), color=color).inc()
+                priority_counter.labels(simulation=SIMULATION_NAME, pod=pod_name, priority=str(task.priority), color=color).inc()
                 for shit, to_shit in shit_to_be_done.items():
                     if to_shit is None:
                         try:
                             enqueue_item(queues.get('DELETE'), {"name": shit, "namespace": "tasks"})
                         except Exception as e:
                             logging.warning(f"There was an issue deleting pod during offloading. Probably finished first")
-                        offloaded_tasks_counter.labels(simulation=SIMULATION_NAME).inc()
-                        priority_counter.labels(simulation=SIMULATION_NAME,pod=pod_name, priority=priority).dec()
+                        offloaded_tasks_counter.labels(simulation=SIMULATION_NAME, priority=str(priority), color=color).inc()
+                        allocated_tasks_counter.labels(node=node_name, simulation=SIMULATION_NAME, priority=str(priority), color=color).dec()
+                        priority_counter.labels(simulation=SIMULATION_NAME,pod=pod_name, priority=priority, color=color).dec()
                     else:
                         try:
                             enqueue_item(queues.get('RESCHEDULE'), {"name": shit, "namespace": "tasks", "node": to_shit})
-                            reallocated_tasks_counter.labels(simulation=SIMULATION_NAME).inc()
+                            reallocated_tasks_counter.labels(simulation=SIMULATION_NAME, priority=str(priority), color=color).inc()
                         except:
                             logging.warning(f"Removing pod {shit} from {to_shit} failed. Finished before reschedeling")
                     
@@ -137,8 +138,8 @@ def process_pod():
                 enqueue_item(queue_name=queues.get('CREATE'), item=pod_data)
                     
             else:
-                unallocated_tasks_counter.labels(simulation=SIMULATION_NAME).inc()
-                unallocated_priority_counter.labels(simulation=SIMULATION_NAME, priority=str(task.priority)).inc()
+                unallocated_tasks_counter.labels(simulation=SIMULATION_NAME, priority=str(priority), color=color).inc()
+                unallocated_priority_counter.labels(simulation=SIMULATION_NAME, priority=str(task.priority), color=color).inc()
 
 
         except Exception as e:

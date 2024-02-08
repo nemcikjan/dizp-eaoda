@@ -26,6 +26,6 @@ configMapGenerator:
     name: fluentbit-config
 images:
   - name: ghcr.io/nemcikjan/dizp-eaoda-worker
-    newTag: v20240208-b5489b7
+    newTag: v20240208-94b9435
   - name: ghcr.io/nemcikjan/dizp-eaoda-controller
-    newTag: v20240208-b5489b7
+    newTag: v20240208-94b9435
