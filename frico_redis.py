@@ -183,6 +183,12 @@ def relocate_task(task_name: str, to_node: str) -> None:
     release_task(from_node, task_name)
     allocate_task(to_node, task_name, task['cpu'], task['mem'], task['p'], task['c'])
 
+def get_all_tasks():
+    return r.scan_iter(match=f'meta:tasks:*')
+        
+def exists(key: str):
+    return r.exists(key) > 0
+
 def get_node_name_from_meta_key(key: str):
     return key.split(':')[-1]
 
