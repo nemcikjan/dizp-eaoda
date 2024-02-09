@@ -289,3 +289,12 @@ def flush_temp(task: str):
 
 def remove_from_queue(queue: str, value):
     r.lrem(queue, 1, json.dumps(value))
+
+def add_to_set(task: str):
+    r.sadd("tasks_in_deletion", task)
+
+def is_in_deletion(task: str):
+    return r.sismember("tasks_in_deletion", task)
+
+def rem_from_set(task: str):
+    r.srem("tasks_in_deletion", task)

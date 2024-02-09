@@ -1,6 +1,6 @@
 from kubernetes import client, config
 import time
-from frico_redis import enqueue_item, queues, get_all_tasks, release_task
+from frico_redis import add_to_set, enqueue_item, is_in_deletion, queues, get_all_tasks, release_task
 import utils
 import logging
 import os
@@ -65,10 +65,14 @@ def check_pods_status(namespace='default'):
         # Check the phase of each pod
             if pod.status.phase == "Succeeded":
                 logging.info(f"Pod {pod.metadata.name} succeeded.")
-                enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace})
+                if not is_in_deletion(pod.metadata.name):
+                    add_to_set(pod.metadata.name)
+                    enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace})
             elif pod.status.phase == "Failed":
                 logging.info(f"Pod {pod.metadata.name} failed.")
-                enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace})
+                if not is_in_deletion(pod.metadata.name):
+                    add_to_set(pod.metadata.name)
+                    enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace})
 
 if __name__ == "__main__":
     while not stop_event.is_set():

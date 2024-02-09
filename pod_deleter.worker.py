@@ -3,7 +3,7 @@ import os
 import signal
 import sys
 import threading
-from frico_redis import dequeue_item, handle_pod, queues, remove_from_queue
+from frico_redis import dequeue_item, handle_pod, queues, rem_from_set, remove_from_queue
 from k8s import delete_pod
 
 
@@ -39,6 +39,11 @@ def delete():
                 handle_pod(pod["name"])
             except Exception as e:
                 logging.error(f"Handling for pod {pod["name"]} failed: {e}")
+            
+            try:
+                rem_from_set(pod["name"])
+            except Exception as e:
+                logging.warning(f"Unable to delete {pod["name"]} from set: {e}")
         else:
             logging.warning("Unable to parse pod")
 
