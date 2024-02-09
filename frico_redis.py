@@ -86,8 +86,9 @@ r_i = RedisClient()
 r = r_i.get_redis()
 
 def calculate_capacity(node: str) -> float:
-    d = r.hgetall(utils.knapsack_key(node))
-    return (((int(d['cpu_cap']) - int(d['cpu_free'])) / int(d['cpu_cap'])) + ((int(d['memory_cap']) - int(d['memory_free'])) / int(d['memory_cap']))) / 2
+    with acquire_lock(utils.knapsack_key(node)):
+        d = r.hgetall(utils.knapsack_key(node))
+        return (((int(d['cpu_cap']) - int(d['cpu_free'])) / int(d['cpu_cap'])) + ((int(d['memory_cap']) - int(d['memory_free'])) / int(d['memory_cap']))) / 2
 
 def calculate_obj(prio: int, node: str, cpu: int, mem: int) -> float:
     d = r.hgetall(utils.knapsack_key(node))
@@ -133,9 +134,14 @@ def allocate_task(node: str, task: str, cpu: int, mem: int, prio: int, color: in
 
 def release_task(node: str, task: str) -> None:
     key = utils.task_key(node,task)
+    cpu = 0
+    mem = 0
     with acquire_lock(key):
-        cpu = int(r.hget(key, 'cpu'))
-        mem = int(r.hget(key, 'mem'))
+        try:
+            cpu = int(r.hget(key, 'cpu'))
+            mem = int(r.hget(key, 'mem'))
+        except Exception as e:
+            logging.warning(f"Unable to get task {key} metadata: {e}")
         try:
             r.delete(key)
         except Exception as e:
@@ -252,7 +258,7 @@ def handle_pod(task_id: str, node_name: str):
         logging.info(f"Releasing task {task_id} from {node_name}")
         release_task(node_name, task_id)
     except Exception as e:
-        logging.warning(f"Handling pod failed {e}")
+        logging.warning(f"Handling pod {task_id} failed {e}")
         raise e
 
 def push_temp_task(t: str, task: dict[str, Any]):
