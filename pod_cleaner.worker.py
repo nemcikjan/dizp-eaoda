@@ -52,7 +52,7 @@ def check_pods_status(namespace='default'):
 
     # Create an instance of the API class
 
-    print(f"Checking pods in namespace '{namespace}'...")
+    logging.info(f"Checking pods in namespace '{namespace}'...")
 
     # List all the pods in the specified namespace
     pods = v1.list_namespaced_pod(namespace)
