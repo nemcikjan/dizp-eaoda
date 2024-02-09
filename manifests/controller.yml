@@ -6,7 +6,7 @@ metadata:
   namespace: frico
   name: eaoda
 spec:
-  replicas: 3
+  replicas: 5
   strategy:
     type: Recreate
   selector:

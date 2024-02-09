@@ -58,22 +58,23 @@ class FRICO:
                         t_task = get_task(knapsack, t)
                         # lock task
                         logging.info(f"Suspect {t}:{knapsack} {t_task}")
-                        for o_k in get_nodes():
-                            try:
-                                if o_k is not knapsack and has_color_node(o_k, t_task['c']) and can_allocate(knapsack, int(t_task['cpu']), int(t_task['mem'])):                                
-                                    release_task(knapsack, t)
-                                    allocate_task(o_k, t, int(t_task['cpu']), int(t_task['mem']), int(t_task['p']), t_task['c'])
-                                    tasks_to_reschedule[t] = o_k
-                                    break
-                            except Exception as e:
-                                logging.warning(f"Found random 'c' access {e}")
-                                logging.info(f"Releasing {t} from {knapsack} due error")
+                        if t_task is not None:
+                            for o_k in get_nodes():
                                 try:
-                                    release_task(knapsack, t)
-                                except Exception as ex:
-                                    logging.warning(f"Releasing {t} from {knapsack} failed: {ex}")
-                        
-                        
+                                    if o_k is not knapsack and has_color_node(o_k, t_task['c']) and can_allocate(knapsack, int(t_task['cpu']), int(t_task['mem'])):                                
+                                        release_task(knapsack, t)
+                                        allocate_task(o_k, t, int(t_task['cpu']), int(t_task['mem']), int(t_task['p']), t_task['c'])
+                                        tasks_to_reschedule[t] = o_k
+                                        break
+                                except Exception as e:
+                                    logging.warning(f"Found random 'c' access {e}")
+                                    logging.info(f"Releasing {t} from {knapsack} due error")
+                                    try:
+                                        release_task(knapsack, t)
+                                    except Exception as ex:
+                                        logging.warning(f"Releasing {t} from {knapsack} failed: {ex}")
+                            
+                            
                         applicable = self.frico_find_applicable(task)    
                         if (applicable is not None):
                             allocated = True
