@@ -136,16 +136,18 @@ def release_task(node: str, task: str) -> None:
     key = utils.task_key(node,task)
     cpu = 0
     mem = 0
-    with acquire_lock(key):
-        try:
-            cpu = int(r.hget(key, 'cpu'))
-            mem = int(r.hget(key, 'mem'))
-        except Exception as e:
-            logging.warning(f"Unable to get task {key} metadata: {e}")
-        try:
-            r.delete(key)
-        except Exception as e:
-            logging.warning(f"Unable to delete key {key}: {e}")
+    if exists(key):
+        with acquire_lock(key):
+            try:
+                cpu = int(r.hget(key, 'cpu'))
+                mem = int(r.hget(key, 'mem'))
+            except Exception as e:
+                logging.warning(f"Unable to get task {key} metadata: {e}")
+            try:
+                r.delete(key)
+            except Exception as e:
+                logging.warning(f"Unable to delete key {key}: {e}")
+    logging.warning(f"{key} does not exist")
 
     increase_capacity(node, cpu, mem)
     try:
@@ -179,6 +181,7 @@ def relocate_task(task_name: str, to_node: str) -> None:
     from_node = ''
     for k in r.scan_iter(match=f'meta:tasks:{task_name}:*'):
         from_node = k.split(':')[-1]
+        break
     task = r.hgetall(utils.task_key(from_node, task_name))
     release_task(from_node, task_name)
     allocate_task(to_node, task_name, task['cpu'], task['mem'], task['p'], task['c'])
@@ -237,9 +240,9 @@ def init(nodes: dict[str, dict[str, bool | int]]) -> None:
                 mapping["memory_free"] = n["memory"]
             else:
                 mapping[a] = str(b)
-
-        r.hset(utils.knapsack_key(k), mapping=mapping)
-        add_node(k)
+        if not exists(utils.knapsack_key(k)):
+            r.hset(utils.knapsack_key(k), mapping=mapping)
+            add_node(k)
 
 def enqueue_item(queue_name: str, item: dict[str, Any]):
     """
@@ -259,10 +262,14 @@ def dequeue_item(queue_name: str, timeout=0):
         return json.loads(item[1])
     return None
 
-def handle_pod(task_id: str, node_name: str):
+def handle_pod(task_id: str):
+    from_node = ''
+    for k in r.scan_iter(match=f'meta:tasks:{task_id}:*'):
+        from_node = k.split(':')[-1]
+        break
     try:
-        logging.info(f"Releasing task {task_id} from {node_name}")
-        release_task(node_name, task_id)
+        logging.info(f"Releasing task {task_id} from {from_node}")
+        release_task(from_node, task_id)
     except Exception as e:
         logging.warning(f"Handling pod {task_id} failed {e}")
         raise e

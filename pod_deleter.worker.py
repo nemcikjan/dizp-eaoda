@@ -36,7 +36,7 @@ def delete():
                 logging.warning(f"Unable to delete pod {pod["name"]}: {e}")
             
             try:
-                handle_pod(pod["name"], pod["node"])
+                handle_pod(pod["name"])
             except Exception as e:
                 logging.error(f"Handling for pod {pod["name"]} failed: {e}")
         else:

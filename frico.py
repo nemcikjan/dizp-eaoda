@@ -51,12 +51,8 @@ class FRICO:
 
             for knapsack in get_nodes():
                 if has_color_node(knapsack, task.color):
-                    # lock knapsack
-                    # lkm = acquire_lock(utils.knapsack_key(knapsack))
-                    # lks = acquire_lock(utils.sorted_knapsacks_key)
                     for t in get_node_tasks(knapsack):
                         t_task = get_task(knapsack, t)
-                        # lock task
                         logging.info(f"Suspect {t}:{knapsack} {t_task}")
                         if t_task is not None:
                             for o_k in get_nodes():
@@ -80,9 +76,7 @@ class FRICO:
                             allocated = True
                             choosen_node = applicable
                             break
-                    
-                    # release_lock(lkm)
-                    # release_lock(lks)            
+                         
 
             if choosen_node is not None:
                 self.frico_allocate_task(choosen_node, task)
@@ -95,8 +89,6 @@ class FRICO:
                 allocated_node = ''
                 for knapsack in get_nodes():
                     if has_color_node(knapsack, task.color):
-                        # lkm = acquire_lock(utils.knapsack_key(knapsack))
-                        # lks = acquire_lock(utils.sorted_knapsacks_key)
                         tasks = []
                         flush_temp(task.name)
                         cummulative_cpu = 0
@@ -108,8 +100,6 @@ class FRICO:
                             try:
                                 if calculate_obj(task.priority, knapsack, task.cpu_requirement, task.memory_requirement) <= self.calculate_potential_objective(task, int(k_n['cpu_cap']), int(k_n['memory_cap'])):
                                     t_t = get_task(knapsack, t)
-                                    # lock task
-                                    # lt = acquire_lock(utils.sorted_tasks_per_node_key(knapsack))
                                     t_t["name"] = t
                                     cummulative_cpu += int(t_t['cpu'])
                                     cummulatice_memory += int(t_t['mem'])
@@ -125,10 +115,7 @@ class FRICO:
                                 logging.warning(f"Error while trying to find space {e}")
                                 logging.info(f"Releasing {t} from {knapsack} due error")
                                 release_task(knapsack, t)
-                        # for _, la in tasks:
-                        #     release_lock(la)
-                        # release_lock(lkm)
-                        # release_lock(lks)
+
                         if has_enough_space:
                             # here we know that all tasks in the list must be offloaded in order to relax node N for task T
                             for t in tasks:
@@ -153,14 +140,11 @@ class FRICO:
                             except Exception as e:
                                 logging.warning(f"Error while allocating in last phase {e}")
                             
-                            # l_searched_knapsacks.append(knapsack)
                         
                         if not task_allocated:
                             tasks_to_reschedule[t['name']] = None
                             self.offloaded_tasks += 1
-                        
-                        # for n in l_searched_knapsacks:
-                        #     add_node(n) 
+
                 return (allocated_node, tasks_to_reschedule)
     
     def calculate_potential_objective(self, task: Task, cpu_capacity: int, memory_capacity: int):

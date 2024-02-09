@@ -62,10 +62,10 @@ def check_pods_status(namespace='default'):
         # Check the phase of each pod
             if pod.status.phase == "Succeeded":
                 logging.info(f"Pod {pod.metadata.name} succeeded.")
-                enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace, "node": pod.spec.node_name})
+                enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace})
             elif pod.status.phase == "Failed":
                 logging.info(f"Pod {pod.metadata.name} failed.")
-                enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace, "node": pod.spec.node_name})
+                enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace})
 
 if __name__ == "__main__":
     while not stop_event.is_set():

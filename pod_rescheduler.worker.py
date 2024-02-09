@@ -3,7 +3,7 @@ import os
 import signal
 import sys
 import threading
-from frico_redis import dequeue_item, queues, release_task, remove_from_queue
+from frico_redis import dequeue_item, queues, release_task, relocate_task, remove_from_queue
 from k8s import label_pod, reschedule
 
 
