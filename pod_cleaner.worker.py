@@ -20,19 +20,22 @@ logging.basicConfig(level=LOG_LEVEL, handlers=(logging.StreamHandler(sys.stdout)
 stop_event = threading.Event()
 
 def reverse_cleanup():
-    try:
-        pods = v1.list_namespaced_pod("tasks")
-        pod_list = [pod.metadata.name for pod in pods.items]
-        tasks = [(t.split(':')[-2], t.split(':')[-1])for t in get_all_tasks()]
-    except Exception as e:
-        logging.warning(f"just in case: {e}")
-    for t, n in tasks:
-        if t not in pod_list:
-            try:
-                logging.info(f"Zombie {t} found on {n}")
-                release_task(n, t)
-            except Exception as e:
-                logging.warning(f"I don't understand: {e}")
+    while not stop_event.is_set():
+        try:
+            logging.info(f"Performing reverse cleanup")
+            pods = v1.list_namespaced_pod("tasks")
+            pod_list = [pod.metadata.name for pod in pods.items]
+            tasks = [(t.split(':')[-2], t.split(':')[-1])for t in get_all_tasks()]
+        except Exception as e:
+            logging.warning(f"just in case: {e}")
+        for t, n in tasks:
+            if t not in pod_list:
+                try:
+                    logging.info(f"Zombie {t} found on {n}")
+                    release_task(n, t)
+                except Exception as e:
+                    logging.warning(f"I don't understand: {e}")
+        time.sleep(10)
 
 cleanup_thread = threading.Thread(target=reverse_cleanup, daemon=True)
 cleanup_thread.start()
