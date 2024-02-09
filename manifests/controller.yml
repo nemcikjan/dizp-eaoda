@@ -24,6 +24,24 @@ spec:
     spec:
       serviceAccountName: frico
       automountServiceAccountToken: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: tier
+                    operator: In
+                    values:
+                      - management
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/instance
+                    operator: In
+                    values:
+                      - redis
+              topologyKey: kubernetes.io/hostname
       # topologySpreadConstraints:
       #   - maxSkew: 1
       #     topologyKey: kubernetes.io/hostname
@@ -33,8 +51,8 @@ spec:
       #         app: eaoda
       #     matchLabelKeys:
       #       - pod-template-hash
-      nodeSelector:
-        tier: management
+      # nodeSelector:
+      #   tier: management
       containers:
         - name: logs
           image: cr.fluentbit.io/fluent/fluent-bit:2.1.10
