@@ -6,7 +6,7 @@ metadata:
   namespace: frico
   name: watcher-worker
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:
