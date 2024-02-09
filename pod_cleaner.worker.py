@@ -58,13 +58,14 @@ def check_pods_status(namespace='default'):
     pods = v1.list_namespaced_pod(namespace)
 
     for pod in pods.items:
+        if "eaoda-phase" not in pod.metadata.labels:
         # Check the phase of each pod
-        if pod.status.phase == "Succeeded":
-            logging.info(f"Pod {pod.metadata.name} succeeded.")
-            enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace, "node": pod.spec.node_name})
-        elif pod.status.phase == "Failed":
-            logging.info(f"Pod {pod.metadata.name} failed.")
-            enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace, "node": pod.spec.node_name})
+            if pod.status.phase == "Succeeded":
+                logging.info(f"Pod {pod.metadata.name} succeeded.")
+                enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace, "node": pod.spec.node_name})
+            elif pod.status.phase == "Failed":
+                logging.info(f"Pod {pod.metadata.name} failed.")
+                enqueue_item(queues.get('DELETE'), {"name": pod.metadata.name, "namespace": pod.metadata.namespace, "node": pod.spec.node_name})
 
 if __name__ == "__main__":
     while not stop_event.is_set():
